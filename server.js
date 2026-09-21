@@ -6,7 +6,7 @@ const fs = require('fs');
 const app = express();
 const port = 3000;
 
-// --- 1. SUPER PREMIUM RED THEME HOMEPAGE (WITH MUSIC) ---
+// --- 1. SUPER PREMIUM RED THEME HOMEPAGE (WITH MUSIC, TOGGLE & BOT DETAILS) ---
 app.get('/', (req, res) => {
     res.send(`
         <!DOCTYPE html>
@@ -87,13 +87,33 @@ app.get('/', (req, res) => {
                     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
                     position: relative;
                     overflow: hidden;
+                    min-height: 180px;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: center;
                 }
-                .action-card::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,26,26,0.1) 0%, transparent 60%); z-index: 0; }
-                .action-content { position: relative; z-index: 1; }
+                .action-card::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,26,26,0.1) 0%, transparent 60%); z-index: 0; pointer-events: none; }
+                .action-content { position: relative; z-index: 1; width: 100%; }
+                
                 input { width: 100%; padding: 16px; background: rgba(0,0,0,0.5); border: 1px solid var(--border); border-radius: 12px; color: #fff; font-size: 16px; text-align: center; margin-bottom: 20px; outline: none; transition: 0.3s; }
                 input:focus { border-color: var(--primary); box-shadow: 0 0 15px var(--primary-glow); }
-                .btn { width: 100%; padding: 16px; background: linear-gradient(45deg, #cc0000, #ff1a1a); border: none; border-radius: 12px; color: #fff; font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; cursor: pointer; transition: 0.3s; box-shadow: 0 5px 20px rgba(204, 0, 0, 0.4); }
+                
+                .btn { width: 100%; padding: 16px; background: linear-gradient(45deg, #cc0000, #ff1a1a); border: none; border-radius: 12px; color: #fff; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; transition: 0.3s; box-shadow: 0 5px 20px rgba(204, 0, 0, 0.4); display: flex; justify-content: center; align-items: center; gap: 8px; }
                 .btn:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(255, 26, 26, 0.6); }
+                
+                .btn-secondary { background: #1a0505; border: 1px solid var(--primary); box-shadow: none; }
+                .btn-secondary:hover { background: var(--primary); color: #fff; }
+                
+                .btn-cancel { background: transparent; border: 1px solid var(--border); box-shadow: none; margin-top: 15px; color: var(--text-muted); }
+                .btn-cancel:hover { background: rgba(255, 255, 255, 0.05); transform: none; box-shadow: none; color: #fff; }
+
+                /* Bot Details Box */
+                .details-box { background: rgba(0,0,0,0.5); border: 1px solid var(--border); border-radius: 12px; padding: 20px; text-align: left; font-size: 14px; line-height: 2; margin-bottom: 20px; }
+                .details-box span { color: var(--primary); font-weight: 700; display: inline-block; width: 90px; }
+
+                /* Utility Classes for Toggle */
+                .hidden { display: none !important; }
+                .fade-in { animation: fadeIn 0.4s ease-out forwards; }
 
                 /* Sections (Stats, Commands) */
                 .section-title { font-size: 20px; font-weight: 700; margin: 40px 0 15px; color: #fff; border-left: 4px solid var(--primary); padding-left: 10px; }
@@ -140,6 +160,7 @@ app.get('/', (req, res) => {
                 .footer span { color: var(--primary); font-weight: 700; }
 
                 @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+                @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
             </style>
         </head>
         <body>
@@ -174,14 +195,44 @@ app.get('/', (req, res) => {
                     <p class="hero-desc">Next Generation WhatsApp Automation.<br>Powerful, fast, and completely secure.</p>
                 </div>
 
-                <!-- Link Device Form -->
+                <!-- Action Area (Toggle Interface) -->
                 <div class="action-card">
-                    <div class="action-content">
-                        <h2 style="font-size: 20px; margin-bottom: 20px;">LINK DEVICE</h2>
+                    <!-- Start View (Main 2 Buttons) -->
+                    <div id="startView" class="action-content">
+                        <h2 style="font-size: 20px; margin-bottom: 25px;">READY TO CONNECT?</h2>
+                        <div style="display: flex; gap: 15px; justify-content: space-between;">
+                            <button class="btn" onclick="showInputForm()" style="flex: 1;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                                LINK DEVICE
+                            </button>
+                            <button class="btn btn-secondary" onclick="showDetailsView()" style="flex: 1;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                                BOT DETAILS
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Input Form View (Hidden initially) -->
+                    <div id="inputView" class="action-content hidden">
+                        <h2 style="font-size: 20px; margin-bottom: 20px;">ENTER WHATSAPP NUMBER</h2>
                         <form action="/pair" method="GET">
                             <input type="text" name="phone" placeholder="947XXXXXXX" required>
                             <button type="submit" class="btn">GENERATE CODE</button>
                         </form>
+                        <button class="btn btn-cancel" onclick="goBackToStart()">CANCEL</button>
+                    </div>
+
+                    <!-- Bot Details View (Hidden initially) -->
+                    <div id="detailsView" class="action-content hidden">
+                        <h2 style="font-size: 20px; margin-bottom: 20px; color: #fff;">ABOUT DIMUWA MINI</h2>
+                        <div class="details-box">
+                            <div><span>NAME:</span> DIMUWA MINI BOT</div>
+                            <div><span>OWNER:</span> DIMUTH SATHSARA</div>
+                            <div><span>VERSION:</span> 3.0 RED EDITION</div>
+                            <div><span>CREATED:</span> SEP 2026</div>
+                            <div><span>STATUS:</span> 100% ONLINE & SECURE</div>
+                        </div>
+                        <button class="btn btn-cancel" onclick="goBackToStart()" style="margin-top: 0;">BACK</button>
                     </div>
                 </div>
 
@@ -249,6 +300,38 @@ app.get('/', (req, res) => {
             </div>
 
             <script>
+                // Navigation/Toggle Scripts
+                const startView = document.getElementById('startView');
+                const inputView = document.getElementById('inputView');
+                const detailsView = document.getElementById('detailsView');
+
+                function hideAllViews() {
+                    startView.classList.add('hidden');
+                    startView.classList.remove('fade-in');
+                    inputView.classList.add('hidden');
+                    inputView.classList.remove('fade-in');
+                    detailsView.classList.add('hidden');
+                    detailsView.classList.remove('fade-in');
+                }
+
+                function showInputForm() {
+                    hideAllViews();
+                    inputView.classList.remove('hidden');
+                    inputView.classList.add('fade-in');
+                }
+
+                function showDetailsView() {
+                    hideAllViews();
+                    detailsView.classList.remove('hidden');
+                    detailsView.classList.add('fade-in');
+                }
+
+                function goBackToStart() {
+                    hideAllViews();
+                    startView.classList.remove('hidden');
+                    startView.classList.add('fade-in');
+                }
+
                 // Uptime Counter Script
                 let seconds = 0;
                 setInterval(() => {
@@ -294,7 +377,7 @@ app.get('/', (req, res) => {
     `);
 });
 
-// --- 2. RED THEME PAIRING CODE PAGE ---
+// --- 2. RED THEME PAIRING CODE PAGE (WITH COPY BUTTON) ---
 app.get('/pair', async (req, res) => {
     let phone = req.query.phone;
     if (!phone) return res.send('Phone number is required!');
@@ -328,22 +411,55 @@ app.get('/pair', async (req, res) => {
                             body { background: #050000; color: #fff; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Outfit', sans-serif; text-align: center; margin: 0; background-image: radial-gradient(circle at 50% 50%, #2a0000 0%, transparent 70%); }
                             .container { background: rgba(15,2,2,0.8); border: 1px solid #330a0a; padding: 50px 30px; border-radius: 25px; box-shadow: 0 15px 40px rgba(0,0,0,0.8), 0 0 30px rgba(255,26,26,0.1); width: 90%; max-width: 450px; animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
                             h2 { color: #a09090; font-weight: 500; font-size: 16px; margin-bottom: 30px; letter-spacing: 2px; text-transform: uppercase; }
-                            .code-box { background: linear-gradient(45deg, #cc0000, #ff1a1a); color: #fff; font-size: 50px; font-weight: 900; letter-spacing: 12px; padding: 20px 20px 20px 32px; border-radius: 15px; display: inline-block; box-shadow: 0 10px 30px rgba(255, 26, 26, 0.4); margin-bottom: 35px; }
+                            .code-box { background: linear-gradient(45deg, #cc0000, #ff1a1a); color: #fff; font-size: 50px; font-weight: 900; letter-spacing: 12px; padding: 20px 20px 20px 32px; border-radius: 15px; display: inline-block; box-shadow: 0 10px 30px rgba(255, 26, 26, 0.4); margin-bottom: 20px; }
+                            .copy-btn { background: #1a1a1a; color: #ff1a1a; border: 1px solid #ff1a1a; padding: 12px 25px; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; transition: 0.3s; margin-bottom: 30px; display: inline-block; text-transform: uppercase; }
+                            .copy-btn:hover { background: #ff1a1a; color: #fff; box-shadow: 0 0 15px rgba(255,26,26,0.5); }
                             p { color: #a09090; font-size: 14px; line-height: 1.8; font-weight: 300; }
                             .highlight { color: #ff1a1a; font-weight: 700; }
                             .back-btn { display: inline-block; margin-top: 30px; padding: 10px 20px; border: 1px solid #ff1a1a; color: #ff1a1a; text-decoration: none; border-radius: 8px; font-weight: 700; transition: 0.3s; }
                             .back-btn:hover { background: #ff1a1a; color: #fff; }
+                            
+                            /* Alert box styling */
+                            .alert-box { visibility: hidden; min-width: 250px; background-color: #00cc00; color: #fff; text-align: center; border-radius: 8px; padding: 12px; position: fixed; z-index: 1; bottom: 30px; left: 50%; transform: translateX(-50%); font-weight: bold; opacity: 0; transition: opacity 0.3s; }
+                            .alert-box.show { visibility: visible; opacity: 1; }
+
                             @keyframes popIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
                         </style>
                     </head>
                     <body>
                         <div class="container">
                             <h2>Link WhatsApp Device</h2>
-                            <div class="code-box">${code}</div>
+                            
+                            <div class="code-box" id="pairCodeDisplay">${code}</div><br>
+                            
+                            <!-- Copy Button -->
+                            <button class="copy-btn" onclick="copyCode()">📋 COPY CODE</button>
+
                             <p>Go to <b>WhatsApp > Linked Devices > Link with phone number</b> and enter the code above.</p>
                             <p style="margin-top:20px; font-size:12px; color:#665555; border-top: 1px solid #330a0a; padding-top: 15px;">Session ID will be sent to your <span class="highlight">Saved Messages (Yourself)</span>.</p>
+                            
                             <a href="/" class="back-btn">RETURN HOME</a>
                         </div>
+
+                        <!-- Toast Alert -->
+                        <div id="copyAlert" class="alert-box">Pairing Code Copied! 🎉</div>
+
+                        <script>
+                            function copyCode() {
+                                var codeText = document.getElementById("pairCodeDisplay").innerText;
+                                codeText = codeText.trim();
+
+                                navigator.clipboard.writeText(codeText).then(function() {
+                                    var alertBox = document.getElementById("copyAlert");
+                                    alertBox.className = "alert-box show";
+                                    setTimeout(function(){ 
+                                        alertBox.className = alertBox.className.replace("alert-box show", "alert-box"); 
+                                    }, 3000);
+                                }).catch(function(err) {
+                                    alert("Failed to copy. Please try manually.");
+                                });
+                            }
+                        </script>
                     </body>
                     </html>
                 `);
