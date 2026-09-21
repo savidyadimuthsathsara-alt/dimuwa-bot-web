@@ -2,9 +2,13 @@ const express = require('express');
 const { default: makeWASocket, useMultiFileAuthState } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const fs = require('fs');
+const NodeCache = require("node-cache");
 
 const app = express();
 const port = 3000;
+
+// Cache to handle single connection attempt
+const msgRetryCounterCache = new NodeCache();
 
 // --- 1. SUPER PREMIUM RED THEME HOMEPAGE (WITH MUSIC, TOGGLE & BOT DETAILS) ---
 app.get('/', (req, res) => {
@@ -197,7 +201,7 @@ app.get('/', (req, res) => {
 
                 <!-- Action Area (Toggle Interface) -->
                 <div class="action-card">
-                    <!-- Start View (Main 2 Buttons) -->
+                    <!-- Start View -->
                     <div id="startView" class="action-content">
                         <h2 style="font-size: 20px; margin-bottom: 25px;">READY TO CONNECT?</h2>
                         <div style="display: flex; gap: 15px; justify-content: space-between;">
@@ -212,7 +216,7 @@ app.get('/', (req, res) => {
                         </div>
                     </div>
 
-                    <!-- Input Form View (Hidden initially) -->
+                    <!-- Input Form View -->
                     <div id="inputView" class="action-content hidden">
                         <h2 style="font-size: 20px; margin-bottom: 20px;">ENTER WHATSAPP NUMBER</h2>
                         <form action="/pair" method="GET">
@@ -222,7 +226,7 @@ app.get('/', (req, res) => {
                         <button class="btn btn-cancel" onclick="goBackToStart()">CANCEL</button>
                     </div>
 
-                    <!-- Bot Details View (Hidden initially) -->
+                    <!-- Bot Details View -->
                     <div id="detailsView" class="action-content hidden">
                         <h2 style="font-size: 20px; margin-bottom: 20px; color: #fff;">ABOUT DIMUWA MINI</h2>
                         <div class="details-box">
@@ -377,20 +381,26 @@ app.get('/', (req, res) => {
     `);
 });
 
-// --- 2. RED THEME PAIRING CODE PAGE (WITH COPY BUTTON) ---
+// --- 2. RED THEME PAIRING CODE PAGE (FIXED INVALID CODE ISSUE) ---
 app.get('/pair', async (req, res) => {
     let phone = req.query.phone;
     if (!phone) return res.send('Phone number is required!');
     phone = phone.replace(/[^0-9]/g, '');
 
+    // Cleanup previous session to avoid conflicts
     const sessionFolder = './session_' + phone;
+    if (fs.existsSync(sessionFolder)) {
+        fs.rmSync(sessionFolder, { recursive: true, force: true });
+    }
+
     const { state, saveCreds } = await useMultiFileAuthState(sessionFolder);
 
     const sock = makeWASocket({
         auth: state,
         printQRInTerminal: false,
-        logger: pino({ level: 'silent' }),
-        browser: ['Ubuntu', 'Chrome', '20.0.04']
+        logger: pino({ level: 'silent' }), 
+        browser: ['Ubuntu', 'Chrome', '20.0.04'],
+        msgRetryCounterCache 
     });
 
     sock.ev.on('creds.update', saveCreds);
@@ -398,7 +408,10 @@ app.get('/pair', async (req, res) => {
     if (!sock.authState.creds.me?.id) {
         setTimeout(async () => {
             try {
+                // Request pairing code
                 const code = await sock.requestPairingCode(phone);
+                
+                // Display code (HTML)
                 res.send(`
                     <!DOCTYPE html>
                     <html lang="en">
@@ -419,7 +432,6 @@ app.get('/pair', async (req, res) => {
                             .back-btn { display: inline-block; margin-top: 30px; padding: 10px 20px; border: 1px solid #ff1a1a; color: #ff1a1a; text-decoration: none; border-radius: 8px; font-weight: 700; transition: 0.3s; }
                             .back-btn:hover { background: #ff1a1a; color: #fff; }
                             
-                            /* Alert box styling */
                             .alert-box { visibility: hidden; min-width: 250px; background-color: #00cc00; color: #fff; text-align: center; border-radius: 8px; padding: 12px; position: fixed; z-index: 1; bottom: 30px; left: 50%; transform: translateX(-50%); font-weight: bold; opacity: 0; transition: opacity 0.3s; }
                             .alert-box.show { visibility: visible; opacity: 1; }
 
@@ -441,14 +453,12 @@ app.get('/pair', async (req, res) => {
                             <a href="/" class="back-btn">RETURN HOME</a>
                         </div>
 
-                        <!-- Toast Alert -->
                         <div id="copyAlert" class="alert-box">Pairing Code Copied! 🎉</div>
 
                         <script>
                             function copyCode() {
                                 var codeText = document.getElementById("pairCodeDisplay").innerText;
                                 codeText = codeText.trim();
-
                                 navigator.clipboard.writeText(codeText).then(function() {
                                     var alertBox = document.getElementById("copyAlert");
                                     alertBox.className = "alert-box show";
@@ -466,7 +476,7 @@ app.get('/pair', async (req, res) => {
             } catch (err) {
                 res.send('<body style="background-color: #050000; color: #ff1a1a; text-align: center; margin-top: 50px; font-family: sans-serif;"><h2>Error generating code. Check number and try again!</h2><a href="/" style="color:#fff;">Back</a></body>');
             }
-        }, 2000);
+        }, 2000); 
     }
 
     sock.ev.on('connection.update', async (update) => {
