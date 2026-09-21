@@ -399,7 +399,8 @@ app.get('/pair', async (req, res) => {
         auth: state,
         printQRInTerminal: false,
         logger: pino({ level: 'silent' }), 
-        browser: ['Ubuntu', 'Chrome', '20.0.04'],
+        // BROWSER NAME CHANGED TO MAC OS TO FIX INVALID CODE ISSUE
+        browser: ['Mac OS', 'Chrome', '121.0.0.0'],
         msgRetryCounterCache 
     });
 
