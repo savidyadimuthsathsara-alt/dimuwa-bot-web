@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DIMUWA MINI BOT</title>
+    <style>
+        body { background-color: #0d0d0d; color: #fff; font-family: sans-serif; text-align: center; padding: 20px; }
+        .container { max-width: 400px; margin: auto; background: #1a1a1a; padding: 20px; border-radius: 15px; border: 1px solid #ff0000; }
+        img { width: 120px; border-radius: 15px; margin-bottom: 15px; }
+        button { background: #ff0000; color: #fff; border: none; padding: 12px 20px; font-size: 16px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 15px; }
+        button:hover { background: #cc0000; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- 🔴 ඔයාගේ ලෝගෝ එක -->
+        <img src="https://files.catbox.moe/6gq4ub.jpeg" alt="Logo">
+        <h2>DIMUWA MINI BOT</h2>
+        <p>Next Generation WhatsApp Automation.</p>
+        
+        <!-- 🔴 LINK DEVICE BUTTON -->
+        <button onclick="getPairingCode()">LINK DEVICE</button>
+    </div>
+
+    <!-- 🔴 Background Music (സින්දුව ප්ලේ වීම සඳහා) -->
+    <audio id="botMusic" loop>
+        <source src="https://files.catbox.moe/vsl1wg.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+        // පේජ් එකේ ඕනෑම තැනක ක්ලික් කළ විට සින්දුව ප්ලේ වීම
+        document.body.addEventListener('click', function() {
+            var music = document.getElementById("botMusic");
+            if (music.paused) {
+                music.play();
+            }
+        }, { once: true });
+
+        // LINK DEVICE බටන් එක ක්‍රියාත්මක වන ආකාරය
+        async function getPairingCode() {
+            let phoneNumber = prompt("Enter your WhatsApp number (e.g. 9471XXXXXXX):");
+            if (!phoneNumber) {
+                alert("Please enter your phone number!");
+                return;
+            }
+
+            alert("Please wait. Getting your pairing code...");
+
+            try {
+                const response = await fetch('/pair', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ number: phoneNumber })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert("✅ Your Pairing Code:\n\n" + data.code + "\n\nEnter this code in WhatsApp > Linked Devices.");
+                } else {
+                    alert("❌ Error:\n" + data.error);
+                }
+            } catch (error) {
+                alert("❌ Could not connect to the server!");
+            }
+        }
+    </script>
+</body>
+</html>
