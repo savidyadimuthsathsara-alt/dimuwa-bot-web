@@ -5,6 +5,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const sqlite3 = require('sqlite3').verbose();
+const axios = require('axios');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -170,11 +171,9 @@ async function startBotForUser(phoneNumber, res) {
             if (!m.message) return;
 
             const from = m.key.remoteJid;
-            const isOwner = m.key.fromMe;
             const botNumberRaw = sock.user.id.split(':')[0] + '@s.whatsapp.net';
             const botSettings = getSettings(phoneNumber);
 
-            // Status Auto Read & React Logic
             if (from === 'status@broadcast' && botSettings.statusRead === "ON") {
                 await sock.readMessages([m.key]);
                 if (botSettings.statusReact !== "OFF") {
@@ -192,6 +191,7 @@ async function startBotForUser(phoneNumber, res) {
             const cleanBody = body.trim();
             const args = cleanBody.split(/ +/);
             const command = args[0].toLowerCase();
+            const text = args.slice(1).join(" ");
             const q = args[1]?.toLowerCase();
             const val = args[2]?.toUpperCase();
 
@@ -226,22 +226,58 @@ async function startBotForUser(phoneNumber, res) {
                     `• *Bot Power:* ${botSettings.botPower}\n` +
                     `• *VV Target:* ${botSettings.vvTarget}\n` +
                     `• *Save Target:* ${botSettings.saveTarget}\n\n` +
-                    `💡 *How to change targets:* `.setting vvtarget private` or `.setting savetarget same`\n\n` +
+                    `💡 *How to change targets:* \`.setting vvtarget private\` or \`.setting savetarget same\`\n\n` +
                     `© CREATOR BY DIMUTH SATHSARA`;
                 
                 await sock.sendMessage(from, { text: settingsText }, { quoted: m });
             }
             else if (command === '.menu') {
-                const menuText = `🤖 *DIMUWA MINI BOT MENU* 🤖\n\n` +
-                    `• *.alive* - Check bot status\n` +
-                    `• *.ping* - Check bot speed\n` +
-                    `• *.setting* - View/Change bot settings\n` +
-                    `• *.save* - Download status/media (Target: ${botSettings.saveTarget})\n` +
-                    `• *.vv* - Unlock view-once media (Target: ${botSettings.vvTarget})\n\n` +
-                    `© CREATOR BY DIMUTH SATHSARA`;
+                const menuText = `👋 DIMUWA MINI BOT 🤖 👑\n` +
+                    `-- The Mini Whatsapp Bot Experience --\n\n` +
+                    `┌──「 👨‍💻 CREATOR INFO 」──┐\n` +
+                    `│ 👨‍💻 Creator: Dimuth sathsara\n` +
+                    `│ 📱 Contact: +94740325746\n` +
+                    `│ ⚙️ Prefix: [ . ]\n` +
+                    `└────────────────────┘\n\n` +
+                    `┌──「 🤖 BOT STATUS 」──┐\n` +
+                    `│ 🇱🇰 Bot Name: DIMUWA MINI BOT\n` +
+                    `│ 🟢 Status: Online\n` +
+                    `│ ⚙️ Mode: PUBLIC\n` +
+                    `└────────────────────┘\n\n` +
+                    `┌──「 📁 MAIN MENU 」──┐\n` +
+                    `│ 1️⃣ 📥 DOWNLOAD (TikTok, FB, YT)\n` +
+                    `│ 2️⃣ ⚙️ SETTINGS (.settings)\n` +
+                    `│ 3️⃣ 👑 OWNER COMMANDS\n` +
+                    `│ 4️⃣ 🛠️ UTILITY (.vv, .save)\n` +
+                    `│ 5️⃣ 🎮 FUN COMMANDS\n` +
+                    `│ 6️⃣ 👥 GROUP COMMANDS (.tagall)\n` +
+                    `└────────────────────┘\n\n` +
+                    `💡 Usage: .tiktok <url>, .fb <url>, .yt <url>`;
                 
                 await sock.sendMessage(from, { image: { url: 'https://files.catbox.moe/6gq4ub.jpeg' }, caption: menuText }, { quoted: m });
                 await sock.sendMessage(from, { audio: { url: 'https://files.catbox.moe/vsl1wg.mp3' }, mimetype: 'audio/mp4', ptt: false }, { quoted: m });
+            }
+            else if (command === '.tiktok' || command === '.tt' || command === '.fb' || command === '.facebook' || command === '.yt' || command === '.youtube') {
+                if (!text) {
+                    await sock.sendMessage(from, { text: `⚠️ Please provide a valid link!\nExample: \`${command} <link>\`` }, { quoted: m });
+                    return;
+                }
+                await sock.sendMessage(from, { text: "⏳ *Downloading your media, please wait...*" }, { quoted: m });
+                try {
+                    // Using public APIs for social media downloading
+                    const apiURL = `https://api.siputzx.my.id/api/d/tiktok?url=${encodeURIComponent(text)}`;
+                    const response = await axios.get(apiURL).catch(() => null);
+                    
+                    if (response && response.data && response.data.status) {
+                        const videoUrl = response.data.data.no_watermark || response.data.data.video;
+                        await sock.sendMessage(from, { video: { url: videoUrl }, caption: "📥 *Downloaded by Dimuwa Mini Bot*" }, { quoted: m });
+                    } else {
+                        // Fallback generic send if direct api fails
+                        await sock.sendMessage(from, { video: { url: text }, caption: "📥 *Downloaded Media*" }, { quoted: m });
+                    }
+                } catch (err) {
+                    await sock.sendMessage(from, { text: "❌ Failed to download media. Please check the link and try again!" }, { quoted: m });
+                }
             }
             else if (command === '.save') {
                 const quotedMsg = m.message.extendedTextMessage?.contextInfo?.quotedMessage;
