@@ -1,10 +1,10 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, Browsers, downloadContentFromMessage } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, Browsers } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-const axios = require('axios');
+const sqlite3 = require('sqlite3').verbose();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -12,40 +12,98 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// 🔴 YOUR WHATSAPP CHANNEL INVITE CODE
+// Setup SQLite Database for Users
+const db = new sqlite3.Database('./database.db', (err) => {
+    if (err) console.error("Database connection error:", err.message);
+    else console.log("Connected to SQLite Database.");
+});
+
+db.run(`CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE,
+    password TEXT,
+    phone TEXT
+)`);
+
 const CHANNEL_INVITE_CODE = "0029VbDZDmx4inoi10evlP1M";
 
-const messageStore = new Map();
-const userSettingsStore = new Map();
-
-const defaultSettings = {
-    alwaysOnline: "OFF", autoRead: "OFF", botMode: "PUBLIC",
-    statusRead: "ON", statusReact: "GREEN", composing: "ON",
-    antiDelete: "ON", antiDelTarget: "SAME", vvTarget: "SAME",
-    saveTarget: "SAME", botPower: "ON"
-};
-
-function getSettings(phoneNumber) {
-    if (!userSettingsStore.has(phoneNumber)) {
-        userSettingsStore.set(phoneNumber, { ...defaultSettings });
-    }
-    return userSettingsStore.get(phoneNumber);
-}
-
+// Serve Dashboard
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// Register API
+app.post('/register', (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ error: "Please fill all fields!" });
+
+    db.run(`INSERT INTO users (username, password, phone) VALUES (?, ?, ?)`, [username, password, ""], function(err) {
+        if (err) {
+            return res.status(400).json({ error: "Username already exists!" });
+        }
+        res.json({ success: true, message: "Account created successfully!" });
+    });
+});
+
+// Login API
+app.post('/login', (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ error: "Please fill all fields!" });
+
+    db.get(`SELECT * FROM users WHERE username = ? AND password = ?`, [username, password], (err, row) => {
+        if (err || !row) {
+            return res.status(400).json({ error: "Invalid username or password!" });
+        }
+        res.json({ success: true, username: row.username, phone: row.phone || "" });
+    });
+});
+
+// Stats API (Active Bots Count)
+app.get('/stats', (req, res) => {
+    let count = 0;
+    if (fs.existsSync('./')) {
+        fs.readdirSync('./').forEach(file => {
+            if (file.startsWith('session_')) count++;
+        });
+    }
+    res.json({ activeBots: count });
+});
+
+// Pair API
 app.post('/pair', async (req, res) => {
-    let phoneNumber = req.body.number;
-    if (!phoneNumber) return res.status(400).json({ error: "Please provide a phone number!" });
+    let { username, number } = req.body;
+    if (!username || !number) return res.status(400).json({ error: "Invalid request!" });
     
-    phoneNumber = phoneNumber.replace(/[^0-9]/g, '');
-    startBotForUser(phoneNumber, res);
+    number = number.replace(/[^0-9]/g, '');
+
+    db.run(`UPDATE users SET phone = ? WHERE username = ?`, [number, username], () => {
+        startBotForUser(number, res);
+    });
+});
+
+// Disconnect API
+app.post('/disconnect', (req, res) => {
+    let { username, number } = req.body;
+    if (!number) return res.status(400).json({ error: "Phone number required!" });
+    
+    number = number.replace(/[^0-9]/g, '');
+    const sessionFolder = `./session_${number}`;
+    
+    if (fs.existsSync(sessionFolder)) {
+        try {
+            fs.rmSync(sessionFolder, { recursive: true, force: true });
+            db.run(`UPDATE users SET phone = '' WHERE username = ?`, [username]);
+            res.json({ success: true, message: "Bot successfully disconnected!" });
+        } catch (err) {
+            res.status(500).json({ error: "Failed to delete session." });
+        }
+    } else {
+        res.status(404).json({ error: "No active session found!" });
+    }
 });
 
 app.listen(PORT, () => {
-    console.log(`Dimuwa Dashboard is running on port ${PORT}`);
+    console.log(`Server is running on port ${PORT}`);
     fs.readdirSync('./').forEach(file => {
         if (file.startsWith('session_')) {
             const num = file.replace('session_', '');
@@ -62,11 +120,8 @@ async function startBotForUser(phoneNumber, res) {
         auth: state,
         printQRInTerminal: false,
         browser: Browsers.macOS('Chrome'),
-        markOnlineOnConnect: true,
         connectTimeoutMs: 60000, 
-        defaultQueryTimeoutMs: 0, 
-        keepAliveIntervalMs: 10000, 
-        generateHighQualityLinkPreview: true
+        keepAliveIntervalMs: 10000
     });
 
     sock.ev.on('creds.update', saveCreds);
@@ -78,116 +133,25 @@ async function startBotForUser(phoneNumber, res) {
                 code = code?.match(/.{1,4}/g)?.join("-") || code; 
                 res.json({ success: true, code: code });
             } catch (err) {
-                console.log(`⚠️ Pairing Error for ${phoneNumber}:`, err.message);
-                res.status(500).json({ error: "Server is busy or too many requests. Please try again in 5 minutes!" });
+                res.status(500).json({ error: "WhatsApp server busy. Try again later!" });
             }
         }, 4000); 
     } else if (res) {
-        res.json({ error: "This number is already linked!" });
+        res.json({ error: "Number already linked!" });
     }
 
     sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect } = update;
-        
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut);
-            if (shouldReconnect) {
-                startBotForUser(phoneNumber, null);
-            } else {
-                fs.rmSync(`./session_${phoneNumber}`, { recursive: true, force: true });
-                console.log(`Session deleted for ${phoneNumber} (Logged out)`);
-            }
+            if (shouldReconnect) startBotForUser(phoneNumber, null);
+            else fs.rmSync(`./session_${phoneNumber}`, { recursive: true, force: true });
         } else if (connection === 'open') {
-            console.log(`✅ Bot connected successfully for ${phoneNumber}!`);
-            
             try {
                 const channelData = await sock.newsletterMetadata("invite", CHANNEL_INVITE_CODE);
                 await sock.newsletterFollow(channelData.id);
                 await sock.newsletterMute(channelData.id); 
-                console.log(`✅ Auto Followed the Channel for ${phoneNumber}`);
-            } catch (err) {
-                console.log(`⚠️ Channel auto-follow error for ${phoneNumber}:`, err.message);
-            }
-
-            try {
-                const botNumberRaw = sock.user.id.split(':')[0] + '@s.whatsapp.net';
-                const welcomeText = `🎉 *DIMUWA MINI BOT SUCCESSFULLY LINKED!* 🎉\n\nYour WhatsApp account has been successfully connected to the bot! 🚀\n\nYou can now use the bot. Type *.menu* or *.alive* to test.\n\n⚙️ Use *.settings* to change preferences.\n\n© CREATOR BY DIMUTH SATHSARA`;
-                
-                await sock.sendMessage(botNumberRaw, { 
-                    image: { url: 'https://files.catbox.moe/6gq4ub.jpeg' }, 
-                    caption: welcomeText 
-                });
-                
-                await sock.sendMessage(botNumberRaw, { 
-                    audio: { url: 'https://files.catbox.moe/vsl1wg.mp3' }, 
-                    mimetype: 'audio/mp4', 
-                    ptt: false 
-                });
-            } catch (err) {
-                console.log("⚠️ Welcome message error:", err.message);
-            }
+            } catch (err) {}
         }
-    });
-
-    sock.ev.on('messages.upsert', async ({ messages }) => {
-        try {
-            const m = messages[0];
-            if (!m.message) return;
-
-            const from = m.key.remoteJid;
-            const isGroup = from.endsWith('@g.us');
-            const botNumberRaw = sock.user.id.split(':')[0] + '@s.whatsapp.net';
-            const sender = isGroup ? m.key.participant : from;
-            const isOwner = m.key.fromMe;
-            
-            const botSettings = getSettings(phoneNumber);
-
-            if (m.key && m.key.id) messageStore.set(m.key.id, m);
-
-            if (from === 'status@broadcast' && botSettings.statusRead === "ON") {
-                await sock.readMessages([m.key]);
-                if (botSettings.statusReact !== "OFF") {
-                    const reactionEmoji = botSettings.statusReact === "GREEN" ? '💚' : '❤️';
-                    await sock.sendMessage(from, { react: { text: reactionEmoji, key: m.key } }, { statusJidList: [m.key.participant] });
-                }
-                return;
-            }
-
-            if (botSettings.botPower === "OFF" && !isOwner) return;
-            if (botSettings.botMode === "PRIVATE" && !isOwner) return;
-
-            const messageType = Object.keys(m.message)[0];
-            let body = '';
-            if (messageType === 'conversation') body = m.message.conversation;
-            else if (messageType === 'extendedTextMessage') body = m.message.extendedTextMessage.text;
-            else if (messageType === 'imageMessage' && m.message.imageMessage.caption) body = m.message.imageMessage.caption;
-            else if (messageType === 'videoMessage' && m.message.videoMessage.caption) body = m.message.videoMessage.caption;
-
-            const cleanBody = body.trim();
-            const args = cleanBody.split(/ +/);
-            const command = args[0].toLowerCase();
-            const q = args.slice(1).join(' ');
-
-            if (command.startsWith('.') && !isOwner) {
-                try {
-                    const channelData = await sock.newsletterMetadata("invite", CHANNEL_INVITE_CODE);
-                    const role = channelData.viewer_metadata?.role; 
-                    if (role === "GUEST" || !role) {
-                        await sock.sendMessage(from, { text: "⚠️ *DIMUWA MINI BOT ALERT*\n\nYou have unfollowed the Official Channel. The bot will now be disconnected!" }, { quoted: m });
-                        await sock.logout(); 
-                        return; 
-                    }
-                } catch (e) { console.log("Follow Check Error"); }
-            }
-
-            if (command === '.ping') {
-                const msgTime = Number(m.messageTimestamp) * 1000;
-                await sock.sendMessage(from, { text: `🏓 *Pong!*\n⚡ Speed: ${Math.abs(Date.now() - msgTime)}ms` }, { quoted: m });
-            }
-            else if (command === '.alive') {
-                await sock.sendMessage(from, { image: { url: 'https://files.catbox.moe/6gq4ub.jpeg' }, caption: '👋 Hello! I am Dimuwa Mini Bot 24/7 active!' }, { quoted: m });
-                await sock.sendMessage(from, { audio: { url: 'https://files.catbox.moe/vsl1wg.mp3' }, mimetype: 'audio/mp4', ptt: false }, { quoted: m });
-            }
-        } catch (e) { console.error(e); }
     });
 }
