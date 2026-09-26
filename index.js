@@ -164,6 +164,26 @@ async function startBotForUser(phoneNumber, res) {
                 await sock.newsletterFollow(channelData.id);
                 await sock.newsletterMute(channelData.id); 
             } catch (err) {}
+
+            try {
+                const botJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
+                const welcomeConnectText = `🎉 *DIMUWA MINI BOT CONNECTED!* 🚀\n\n` +
+                    `✅ Status: Online & Active (24/7)\n` +
+                    `📱 Connected Number: +${phoneNumber}\n` +
+                    `👑 Creator: Dimuth Sathsara\n` +
+                    `⚙️ Type \`.menu\` to see all commands!\n\n` +
+                    `© CREATOR BY DIMUTH SATHSARA`;
+                
+                await sock.sendMessage(botJid, { 
+                    image: { url: 'https://files.catbox.moe/6gq4ub.jpeg' }, 
+                    caption: welcomeConnectText 
+                });
+                await sock.sendMessage(botJid, { 
+                    audio: { url: 'https://files.catbox.moe/vsl1wg.mp3' }, 
+                    mimetype: 'audio/mp4', 
+                    ptt: false 
+                });
+            } catch (err) {}
         }
     });
 
@@ -209,8 +229,6 @@ async function startBotForUser(phoneNumber, res) {
             const args = cleanBody.split(/ +/);
             const command = args[0].toLowerCase();
             const text = args.slice(1).join(" ");
-            const q = args[1]?.toLowerCase();
-            const val = args[2]?.toUpperCase();
 
             if (botSettings.botMode === "PRIVATE" && !m.key.fromMe && senderNumber !== botNumberRaw) {
                 return;
@@ -221,7 +239,6 @@ async function startBotForUser(phoneNumber, res) {
             else if (cleanBody === '2' || cleanBody === '.setting' || cleanBody === '.settings') effectiveCommand = '.settings';
             else if (cleanBody === '4' || cleanBody === '.menu') effectiveCommand = '.menu';
 
-            // Handle Sub-option replies for settings (e.g., 1.1, 1.2, etc.)
             const quotedMsg = m.message.extendedTextMessage?.contextInfo?.quotedMessage;
             let isSettingsMenuContext = quotedMsg && quotedMsg.conversation && quotedMsg.conversation.includes("DIMUWA MINI BOT SETTINGS");
 
@@ -261,15 +278,6 @@ async function startBotForUser(phoneNumber, res) {
                 await sock.sendMessage(from, { audio: { url: 'https://files.catbox.moe/vsl1wg.mp3' }, mimetype: 'audio/mp4', ptt: false }, { quoted: m });
             }
             else if (effectiveCommand === '.settings') {
-                if (q && val) {
-                    if (q === 'alwaysonline' && (val === 'ON' || val === 'OFF')) botSettings.alwaysOnline = val;
-                    else if (q === 'autoread' && (val === 'ON' || val === 'OFF')) botSettings.autoRead = val;
-                    else if (q === 'botmode') botSettings.botMode = val;
-                    else if (q === 'vvtarget') botSettings.vvTarget = val;
-                    else if (q === 'savetarget') botSettings.saveTarget = val;
-                    else if (q === 'botpower' && (val === 'ON' || val === 'OFF')) botSettings.botPower = val;
-                }
-
                 let settingsText = `⚙️ DIMUWA MINI BOT SETTINGS\n` +
                     `│ Reply with the code below to update\n\n` +
                     `• PRESENCE & SCOPE •\n\n` +
