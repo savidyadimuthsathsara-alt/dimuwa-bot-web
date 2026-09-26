@@ -3,69 +3,216 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DIMUWA MINI BOT</title>
+    <title>DIMUWA BOT | Secure Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700;900&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #0d0d0d; color: #fff; font-family: sans-serif; text-align: center; padding: 20px; }
-        .container { max-width: 400px; margin: auto; background: #1a1a1a; padding: 20px; border-radius: 15px; border: 1px solid #ff0000; }
-        img { width: 120px; border-radius: 15px; margin-bottom: 15px; }
-        button { background: #ff0000; color: #fff; border: none; padding: 12px 20px; font-size: 16px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 15px; }
-        button:hover { background: #cc0000; }
+        :root {
+            --bg-dark: #050000;
+            --bg-card: #120202;
+            --primary: #ff1a1a;
+            --primary-glow: rgba(255, 26, 26, 0.4);
+            --text-main: #ffffff;
+            --text-muted: #a09090;
+            --border: #330a0a;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Outfit', sans-serif; }
+        body { background-color: var(--bg-dark); color: var(--text-main); overflow-x: hidden; background-image: radial-gradient(circle at 50% 0%, #2a0000 0%, transparent 50%); }
+        
+        .header {
+            position: fixed; top: 15px; left: 50%; transform: translateX(-50%);
+            width: 90%; max-width: 600px; background: rgba(15, 0, 0, 0.8);
+            backdrop-filter: blur(12px); border: 1px solid var(--border);
+            border-radius: 50px; display: flex; justify-content: space-between;
+            align-items: center; padding: 12px 25px; z-index: 1000; box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+        }
+        .header-logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; }
+        .header-logo img { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--primary); }
+        .status-dot { width: 8px; height: 8px; background: #00ff00; border-radius: 50%; box-shadow: 0 0 10px #00ff00; }
+
+        .container { max-width: 600px; margin: 100px auto 50px; padding: 0 20px; }
+        .hero { text-align: center; margin-bottom: 30px; }
+        .hero-img { width: 140px; height: 140px; object-fit: cover; border-radius: 25px; border: 2px solid var(--primary); box-shadow: 0 0 30px var(--primary-glow); margin-bottom: 15px; }
+        .hero-title { font-size: 32px; font-weight: 900; background: linear-gradient(90deg, #ff1a1a, #ff6666); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        
+        .action-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 25px 20px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-bottom: 30px; }
+        
+        input { width: 100%; padding: 14px; background: rgba(0,0,0,0.5); border: 1px solid var(--border); border-radius: 12px; color: #fff; font-size: 15px; text-align: center; margin-bottom: 15px; outline: none; }
+        input:focus { border-color: var(--primary); box-shadow: 0 0 15px var(--primary-glow); }
+        
+        .btn { width: 100%; padding: 14px; background: linear-gradient(45deg, #cc0000, #ff1a1a); border: none; border-radius: 12px; color: #fff; font-size: 14px; font-weight: 700; text-transform: uppercase; cursor: pointer; margin-bottom: 10px; }
+        .btn-secondary { background: #1a0505; border: 1px solid var(--primary); color: #ff1a1a; }
+        .btn-cancel { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
+
+        .hidden { display: none !important; }
+        .section-title { font-size: 18px; font-weight: 700; margin: 30px 0 15px; color: #fff; border-left: 4px solid var(--primary); padding-left: 10px; text-align: left; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .card { background: var(--bg-card); border: 1px solid var(--border); padding: 15px; border-radius: 15px; text-align: center; }
+        .card-title { font-weight: 700; font-size: 12px; color: var(--primary); }
+        .card-desc { font-size: 18px; color: #fff; font-weight: 700; }
+
+        .music-btn { position: fixed; bottom: 20px; left: 20px; background: rgba(15, 0, 0, 0.9); border: 1px solid var(--border); padding: 10px 18px; border-radius: 30px; color: var(--text-muted); font-size: 12px; font-weight: 700; cursor: pointer; z-index: 1000; }
+        .music-btn.playing { color: #00ff00; border-color: #00ff00; }
+        .footer { text-align: center; margin-top: 40px; color: var(--text-muted); font-size: 12px; padding-bottom: 60px; }
     </style>
 </head>
 <body>
+    <audio id="bgMusic" loop><source src="https://files.catbox.moe/vsl1wg.mp3" type="audio/mpeg"></audio>
 
-    <div class="container">
-        <!-- Your Bot Logo -->
-        <img src="https://files.catbox.moe/6gq4ub.jpeg" alt="Logo">
-        <h2>DIMUWA MINI BOT</h2>
-        <p>Next Generation WhatsApp Automation.</p>
-        
-        <!-- LINK DEVICE BUTTON -->
-        <button onclick="getPairingCode()">LINK DEVICE</button>
+    <div class="header">
+        <div class="header-logo">
+            <img src="https://files.catbox.moe/6gq4ub.jpeg" alt="Logo"> DIMUWA
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: #00ff00;">
+            <div class="status-dot"></div> ONLINE
+        </div>
     </div>
 
-    <!-- Background Music Audio Element -->
-    <audio id="botMusic" loop>
-        <source src="https://files.catbox.moe/vsl1wg.mp3" type="audio/mpeg">
-    </audio>
+    <div class="music-btn" id="musicToggle" onclick="toggleMusic()">🎵 MUSIC: OFF</div>
+
+    <div class="container">
+        <div class="hero">
+            <img src="https://files.catbox.moe/6gq4ub.jpeg" class="hero-img" alt="Logo">
+            <h1 class="hero-title">DIMUWA PORTAL</h1>
+        </div>
+
+        <!-- AUTH & DASHBOARD CARD -->
+        <div class="action-card">
+            <!-- Auth View (Login / Register) -->
+            <div id="authView">
+                <div id="loginForm">
+                    <h3 style="margin-bottom: 15px;">LOGIN TO YOUR ACCOUNT</h3>
+                    <input type="text" id="loginUser" placeholder="Username">
+                    <input type="password" id="loginPass" placeholder="Password">
+                    <button class="btn" onclick="login()">LOGIN</button>
+                    <button class="btn btn-secondary" onclick="switchAuth('register')">CREATE ACCOUNT</button>
+                </div>
+                <div id="registerForm" class="hidden">
+                    <h3 style="margin-bottom: 15px;">CREATE NEW ACCOUNT</h3>
+                    <input type="text" id="regUser" placeholder="Choose Username">
+                    <input type="password" id="regPass" placeholder="Choose Password">
+                    <button class="btn" onclick="register()">SIGN UP</button>
+                    <button class="btn btn-cancel" onclick="switchAuth('login')">BACK TO LOGIN</button>
+                </div>
+            </div>
+
+            <!-- User Control Dashboard (Hidden until login) -->
+            <div id="userDashboard" class="hidden">
+                <h3 id="welcomeUser" style="margin-bottom: 15px; color: #ff1a1a;">WELCOME</h3>
+                <div id="botControls">
+                    <input type="text" id="userPhone" placeholder="947XXXXXXX">
+                    <button class="btn" onclick="linkBot()">LINK DEVICE</button>
+                    <button class="btn btn-secondary" onclick="unlinkBot()" style="background: #990000; color:#fff;">UNLINK DEVICE</button>
+                </div>
+                <button class="btn btn-cancel" onclick="logout()" style="margin-top: 15px;">LOGOUT</button>
+            </div>
+        </div>
+
+        <h3 class="section-title">SYSTEM STATUS</h3>
+        <div class="grid">
+            <div class="card"><div class="card-title">SERVER</div><div class="card-desc">ACTIVE</div></div>
+            <div class="card"><div class="card-title">ACTIVE BOTS</div><div class="card-desc" id="activeBotsCount">Loading...</div></div>
+        </div>
+
+        <div class="footer">&copy; 2026 DIMUWA BOT. Created by <b>DIMUTH SATHSARA</b></div>
+    </div>
 
     <script>
-        // Play background music when user clicks anywhere on the page
-        document.body.addEventListener('click', function() {
-            var music = document.getElementById("botMusic");
-            if (music.paused) {
-                music.play();
-            }
-        }, { once: true });
+        let currentUser = null;
 
-        // LINK DEVICE button functionality
-        async function getPairingCode() {
-            let phoneNumber = prompt("Enter your WhatsApp number (e.g. 9471XXXXXXX):");
-            if (!phoneNumber) {
-                alert("Please enter your phone number!");
-                return;
-            }
-
-            alert("Please wait. Getting your pairing code...");
-
-            try {
-                const response = await fetch('/pair', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ number: phoneNumber })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    alert("✅ Your Pairing Code:\n\n" + data.code + "\n\nEnter this code in WhatsApp > Linked Devices.");
-                } else {
-                    alert("❌ Error:\n" + data.error);
-                }
-            } catch (error) {
-                alert("❌ Could not connect to the server!");
+        function switchAuth(type) {
+            if(type === 'register') {
+                document.getElementById('loginForm').classList.add('hidden');
+                document.getElementById('registerForm').classList.remove('hidden');
+            } else {
+                document.getElementById('registerForm').classList.add('hidden');
+                document.getElementById('loginForm').classList.remove('hidden');
             }
         }
+
+        async function register() {
+            let u = document.getElementById('regUser').value.trim();
+            let p = document.getElementById('regPass').value.trim();
+            if(!u || !p) { alert("Fill all fields!"); return; }
+            
+            const res = await fetch('/register', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({username: u, password: p})
+            });
+            const data = await res.json();
+            if(data.success) { alert("Account created! Please login."); switchAuth('login'); }
+            else { alert(data.error); }
+        }
+
+        async function login() {
+            let u = document.getElementById('loginUser').value.trim();
+            let p = document.getElementById('loginPass').value.trim();
+            if(!u || !p) { alert("Fill all fields!"); return; }
+
+            const res = await fetch('/login', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({username: u, password: p})
+            });
+            const data = await res.json();
+            if(data.success) {
+                currentUser = data.username;
+                document.getElementById('welcomeUser').innerText = "WELCOME, " + currentUser.toUpperCase();
+                if(data.phone) document.getElementById('userPhone').value = data.phone;
+                document.getElementById('authView').classList.add('hidden');
+                document.getElementById('userDashboard').classList.remove('hidden');
+            } else { alert(data.error); }
+        }
+
+        function logout() {
+            currentUser = null;
+            document.getElementById('userDashboard').classList.add('hidden');
+            document.getElementById('authView').classList.remove('hidden');
+        }
+
+        async function linkBot() {
+            let phone = document.getElementById('userPhone').value.trim();
+            if(!phone) { alert("Enter phone number!"); return; }
+            alert("Getting pairing code...");
+            const res = await fetch('/pair', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({username: currentUser, number: phone})
+            });
+            const data = await res.json();
+            if(data.success) { alert("✅ Pairing Code:\n\n" + data.code); }
+            else { alert("❌ " + data.error); }
+        }
+
+        async function unlinkBot() {
+            let phone = document.getElementById('userPhone').value.trim();
+            if(!phone) { alert("Enter phone number!"); return; }
+            if(!confirm("Disconnect bot?")) return;
+            const res = await fetch('/disconnect', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({username: currentUser, number: phone})
+            });
+            const data = await res.json();
+            if(data.success) { alert("✅ " + data.message); document.getElementById('userPhone').value = ''; fetchStats(); }
+            else { alert("❌ " + data.error); }
+        }
+
+        async function fetchStats() {
+            try {
+                const res = await fetch('/stats');
+                const data = await res.json();
+                document.getElementById('activeBotsCount').innerText = data.activeBots;
+            } catch (e) { document.getElementById('activeBotsCount').innerText = "0"; }
+        }
+        fetchStats();
+        setInterval(fetchStats, 5000);
+
+        const bgMusic = document.getElementById('bgMusic');
+        let userInteracted = false;
+        function toggleMusic() {
+            if (bgMusic.paused) { bgMusic.play(); document.getElementById('musicToggle').innerHTML = '🎵 MUSIC: ON'; document.getElementById('musicToggle').classList.add('playing'); }
+            else { bgMusic.pause(); document.getElementById('musicToggle').innerHTML = '🔇 MUSIC: OFF'; document.getElementById('musicToggle').classList.remove('playing'); }
+        }
+        document.body.addEventListener('click', function() {
+            if (!userInteracted && bgMusic.paused) { bgMusic.play(); document.getElementById('musicToggle').innerHTML = '🎵 MUSIC: ON'; document.getElementById('musicToggle').classList.add('playing'); userInteracted = true; }
+        });
     </script>
 </body>
 </html>
