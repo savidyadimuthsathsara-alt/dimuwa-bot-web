@@ -15,22 +15,22 @@
 <body>
 
     <div class="container">
-        <!-- 🔴 ඔයාගේ ලෝගෝ එක -->
+        <!-- Your Bot Logo -->
         <img src="https://files.catbox.moe/6gq4ub.jpeg" alt="Logo">
         <h2>DIMUWA MINI BOT</h2>
         <p>Next Generation WhatsApp Automation.</p>
         
-        <!-- 🔴 LINK DEVICE BUTTON -->
+        <!-- LINK DEVICE BUTTON -->
         <button onclick="getPairingCode()">LINK DEVICE</button>
     </div>
 
-    <!-- 🔴 Background Music (സින්දුව ප්ලේ වීම සඳහා) -->
+    <!-- Background Music Audio Element -->
     <audio id="botMusic" loop>
         <source src="https://files.catbox.moe/vsl1wg.mp3" type="audio/mpeg">
     </audio>
 
     <script>
-        // පේජ් එකේ ඕනෑම තැනක ක්ලික් කළ විට සින්දුව ප්ලේ වීම
+        // Play background music when user clicks anywhere on the page
         document.body.addEventListener('click', function() {
             var music = document.getElementById("botMusic");
             if (music.paused) {
@@ -38,7 +38,7 @@
             }
         }, { once: true });
 
-        // LINK DEVICE බටන් එක ක්‍රියාත්මක වන ආකාරය
+        // LINK DEVICE button functionality
         async function getPairingCode() {
             let phoneNumber = prompt("Enter your WhatsApp number (e.g. 9471XXXXXXX):");
             if (!phoneNumber) {
