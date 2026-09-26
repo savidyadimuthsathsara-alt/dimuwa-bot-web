@@ -144,7 +144,7 @@
             if (currentUser) {
                 document.getElementById('auth-section').style.display = 'none';
                 document.getElementById('dashboard-section').style.display = 'block';
-                document.getElementById('welcome-msg').innerText = `WELCOME, ${currentUser.toUpperCase()}`;
+                document.getElementById('welcome-msg').innerText = `WELCOME, DIMUWA ADMIN`;
                 document.getElementById('phone').value = currentPhone;
             }
         };
@@ -173,7 +173,6 @@
             const number = document.getElementById('phone').value.trim();
             if(!number) { alert("Please enter your phone number!"); return; }
             
-            alert("Requesting Pairing Code... Please wait 4 seconds.");
             const res = await fetch('/pair', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
