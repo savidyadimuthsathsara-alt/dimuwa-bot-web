@@ -39,7 +39,8 @@
         input { width: 100%; padding: 14px; background: rgba(0,0,0,0.5); border: 1px solid var(--border); border-radius: 12px; color: #fff; font-size: 15px; text-align: center; margin-bottom: 15px; outline: none; }
         input:focus { border-color: var(--primary); box-shadow: 0 0 15px var(--primary-glow); }
         
-        .btn { width: 100%; padding: 14px; background: linear-gradient(45deg, #cc0000, #ff1a1a); border: none; border-radius: 12px; color: #fff; font-size: 14px; font-weight: 700; text-transform: uppercase; cursor: pointer; margin-bottom: 10px; }
+        .btn { width: 100%; padding: 14px; background: linear-gradient(45deg, #cc0000, #ff1a1a); border: none; border-radius: 12px; color: #fff; font-size: 14px; font-weight: 700; text-transform: uppercase; cursor: pointer; margin-bottom: 10px; transition: 0.3s; }
+        .btn:hover { opacity: 0.9; transform: translateY(-2px); }
         .btn-secondary { background: #1a0505; border: 1px solid var(--primary); color: #ff1a1a; }
         .btn-cancel { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
 
@@ -80,14 +81,14 @@
             <!-- Auth View (Login / Register) -->
             <div id="authView">
                 <div id="loginForm">
-                    <h3 style="margin-bottom: 15px;">LOGIN TO YOUR ACCOUNT</h3>
+                    <h3 style="margin-bottom: 15px; color: #fff;">LOGIN TO YOUR ACCOUNT</h3>
                     <input type="text" id="loginUser" placeholder="Username">
                     <input type="password" id="loginPass" placeholder="Password">
                     <button class="btn" onclick="login()">LOGIN</button>
                     <button class="btn btn-secondary" onclick="switchAuth('register')">CREATE ACCOUNT</button>
                 </div>
                 <div id="registerForm" class="hidden">
-                    <h3 style="margin-bottom: 15px;">CREATE NEW ACCOUNT</h3>
+                    <h3 style="margin-bottom: 15px; color: #fff;">CREATE NEW ACCOUNT</h3>
                     <input type="text" id="regUser" placeholder="Choose Username">
                     <input type="password" id="regPass" placeholder="Choose Password">
                     <button class="btn" onclick="register()">SIGN UP</button>
@@ -95,13 +96,13 @@
                 </div>
             </div>
 
-            <!-- User Control Dashboard (Hidden until login) -->
+            <!-- User Control Dashboard -->
             <div id="userDashboard" class="hidden">
                 <h3 id="welcomeUser" style="margin-bottom: 15px; color: #ff1a1a;">WELCOME</h3>
                 <div id="botControls">
                     <input type="text" id="userPhone" placeholder="947XXXXXXX">
                     <button class="btn" onclick="linkBot()">LINK DEVICE</button>
-                    <button class="btn btn-secondary" onclick="unlinkBot()" style="background: #990000; color:#fff;">UNLINK DEVICE</button>
+                    <button class="btn btn-secondary" onclick="unlinkBot()" style="background: #990000; color:#fff; border-color:#990000;">UNLINK DEVICE</button>
                 </div>
                 <button class="btn btn-cancel" onclick="logout()" style="margin-top: 15px;">LOGOUT</button>
             </div>
@@ -132,66 +133,84 @@
         async function register() {
             let u = document.getElementById('regUser').value.trim();
             let p = document.getElementById('regPass').value.trim();
-            if(!u || !p) { alert("Fill all fields!"); return; }
+            if(!u || !p) { alert("Please fill all fields!"); return; }
             
-            const res = await fetch('/register', {
-                method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({username: u, password: p})
-            });
-            const data = await res.json();
-            if(data.success) { alert("Account created! Please login."); switchAuth('login'); }
-            else { alert(data.error); }
+            try {
+                const res = await fetch('/register', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username: u, password: p})
+                });
+                const data = await res.json();
+                if(data.success) { alert("✅ Account created successfully! Please login."); switchAuth('login'); }
+                else { alert("❌ " + data.error); }
+            } catch (e) { alert("❌ Server connection error!"); }
         }
 
         async function login() {
             let u = document.getElementById('loginUser').value.trim();
             let p = document.getElementById('loginPass').value.trim();
-            if(!u || !p) { alert("Fill all fields!"); return; }
+            if(!u || !p) { alert("Please fill all fields!"); return; }
 
-            const res = await fetch('/login', {
-                method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({username: u, password: p})
-            });
-            const data = await res.json();
-            if(data.success) {
-                currentUser = data.username;
-                document.getElementById('welcomeUser').innerText = "WELCOME, " + currentUser.toUpperCase();
-                if(data.phone) document.getElementById('userPhone').value = data.phone;
-                document.getElementById('authView').classList.add('hidden');
-                document.getElementById('userDashboard').classList.remove('hidden');
-            } else { alert(data.error); }
+            try {
+                const res = await fetch('/login', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username: u, password: p})
+                });
+                const data = await res.json();
+                if(data.success) {
+                    currentUser = data.username;
+                    document.getElementById('welcomeUser').innerText = "WELCOME, " + currentUser.toUpperCase();
+                    if(data.phone) document.getElementById('userPhone').value = data.phone;
+                    document.getElementById('authView').classList.add('hidden');
+                    document.getElementById('userDashboard').classList.remove('hidden');
+                } else { alert("❌ " + data.error); }
+            } catch (e) { alert("❌ Server connection error!"); }
         }
 
         function logout() {
             currentUser = null;
+            document.getElementById('userPhone').value = '';
             document.getElementById('userDashboard').classList.add('hidden');
             document.getElementById('authView').classList.remove('hidden');
         }
 
         async function linkBot() {
             let phone = document.getElementById('userPhone').value.trim();
-            if(!phone) { alert("Enter phone number!"); return; }
-            alert("Getting pairing code...");
-            const res = await fetch('/pair', {
-                method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({username: currentUser, number: phone})
-            });
-            const data = await res.json();
-            if(data.success) { alert("✅ Pairing Code:\n\n" + data.code); }
-            else { alert("❌ " + data.error); }
+            if(!phone) { alert("Please enter your phone number!"); return; }
+            alert("Please wait. Getting your pairing code...");
+            try {
+                const res = await fetch('/pair', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username: currentUser, number: phone})
+                });
+                const data = await res.json();
+                if(data.success) { 
+                    alert("✅ Your Pairing Code:\n\n" + data.code + "\n\nEnter this in WhatsApp > Linked Devices."); 
+                } else { 
+                    alert("❌ " + data.error); 
+                }
+            } catch (e) { alert("❌ Server connection error!"); }
         }
 
         async function unlinkBot() {
             let phone = document.getElementById('userPhone').value.trim();
-            if(!phone) { alert("Enter phone number!"); return; }
-            if(!confirm("Disconnect bot?")) return;
-            const res = await fetch('/disconnect', {
-                method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({username: currentUser, number: phone})
-            });
-            const data = await res.json();
-            if(data.success) { alert("✅ " + data.message); document.getElementById('userPhone').value = ''; fetchStats(); }
-            else { alert("❌ " + data.error); }
+            if(!phone) { alert("Please enter your phone number!"); return; }
+            if(!confirm("Are you sure you want to disconnect and delete your bot session?")) return;
+            
+            try {
+                const res = await fetch('/disconnect', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username: currentUser, number: phone})
+                });
+                const data = await res.json();
+                if(data.success) { 
+                    alert("✅ " + data.message); 
+                    document.getElementById('userPhone').value = ''; 
+                    fetchStats(); 
+                } else { 
+                    alert("❌ " + data.error); 
+                }
+            } catch (e) { alert("❌ Server connection error!"); }
         }
 
         async function fetchStats() {
@@ -205,13 +224,28 @@
         setInterval(fetchStats, 5000);
 
         const bgMusic = document.getElementById('bgMusic');
+        const musicToggle = document.getElementById('musicToggle');
         let userInteracted = false;
+
         function toggleMusic() {
-            if (bgMusic.paused) { bgMusic.play(); document.getElementById('musicToggle').innerHTML = '🎵 MUSIC: ON'; document.getElementById('musicToggle').classList.add('playing'); }
-            else { bgMusic.pause(); document.getElementById('musicToggle').innerHTML = '🔇 MUSIC: OFF'; document.getElementById('musicToggle').classList.remove('playing'); }
+            if (bgMusic.paused) { 
+                bgMusic.play(); 
+                musicToggle.innerHTML = '🎵 MUSIC: ON'; 
+                musicToggle.classList.add('playing'); 
+            } else { 
+                bgMusic.pause(); 
+                musicToggle.innerHTML = '🔇 MUSIC: OFF'; 
+                musicToggle.classList.remove('playing'); 
+            }
         }
+
         document.body.addEventListener('click', function() {
-            if (!userInteracted && bgMusic.paused) { bgMusic.play(); document.getElementById('musicToggle').innerHTML = '🎵 MUSIC: ON'; document.getElementById('musicToggle').classList.add('playing'); userInteracted = true; }
+            if (!userInteracted && bgMusic.paused) { 
+                bgMusic.play(); 
+                musicToggle.innerHTML = '🎵 MUSIC: ON'; 
+                musicToggle.classList.add('playing'); 
+                userInteracted = true; 
+            }
         });
     </script>
 </body>
