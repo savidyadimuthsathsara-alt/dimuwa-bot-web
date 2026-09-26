@@ -34,10 +34,12 @@ const defaultSettings = {
     botMode: "PUBLIC",
     statusRead: "ON", 
     statusReact: "GREEN", 
+    composing: "ON",
     antiDelete: "ON", 
-    botPower: "ON",
+    antiDelTarget: "SAME",
     vvTarget: "SAME",     
-    saveTarget: "SAME"    
+    saveTarget: "SAME",
+    botPower: "ON"
 };
 
 function getSettings(phoneNumber) {
@@ -171,8 +173,23 @@ async function startBotForUser(phoneNumber, res) {
             if (!m.message) return;
 
             const from = m.key.remoteJid;
+            const senderNumber = m.key.participant || from;
             const botNumberRaw = sock.user.id.split(':')[0] + '@s.whatsapp.net';
             const botSettings = getSettings(phoneNumber);
+
+            if (botSettings.botPower === "OFF") return;
+
+            if (botSettings.alwaysOnline === "ON") {
+                await sock.sendPresenceUpdate('available', from);
+            }
+
+            if (botSettings.composing === "ON") {
+                await sock.sendPresenceUpdate('composing', from);
+            }
+
+            if (botSettings.autoRead === "ON") {
+                await sock.readMessages([m.key]);
+            }
 
             if (from === 'status@broadcast' && botSettings.statusRead === "ON") {
                 await sock.readMessages([m.key]);
@@ -195,43 +212,96 @@ async function startBotForUser(phoneNumber, res) {
             const q = args[1]?.toLowerCase();
             const val = args[2]?.toUpperCase();
 
-            if (command === '.ping') {
+            if (botSettings.botMode === "PRIVATE" && !m.key.fromMe && senderNumber !== botNumberRaw) {
+                return;
+            }
+
+            let effectiveCommand = command;
+            if (cleanBody === '1') effectiveCommand = '.tiktok';
+            else if (cleanBody === '2' || cleanBody === '.setting' || cleanBody === '.settings') effectiveCommand = '.settings';
+            else if (cleanBody === '4' || cleanBody === '.menu') effectiveCommand = '.menu';
+
+            // Handle Sub-option replies for settings (e.g., 1.1, 1.2, etc.)
+            const quotedMsg = m.message.extendedTextMessage?.contextInfo?.quotedMessage;
+            let isSettingsMenuContext = quotedMsg && quotedMsg.conversation && quotedMsg.conversation.includes("DIMUWA MINI BOT SETTINGS");
+
+            if (isSettingsMenuContext || cleanBody.includes('.')) {
+                if (cleanBody === '1.1') { botSettings.alwaysOnline = "ON"; await sock.sendMessage(from, { text: "✅ Always Online enabled!" }, { quoted: m }); return; }
+                if (cleanBody === '1.2') { botSettings.alwaysOnline = "OFF"; await sock.sendMessage(from, { text: "❌ Always Online disabled!" }, { quoted: m }); return; }
+                if (cleanBody === '2.1') { botSettings.autoRead = "ON"; await sock.sendMessage(from, { text: "✅ Auto Read enabled!" }, { quoted: m }); return; }
+                if (cleanBody === '2.2') { botSettings.autoRead = "OFF"; await sock.sendMessage(from, { text: "❌ Auto Read disabled!" }, { quoted: m }); return; }
+                if (cleanBody === '3.1') { botSettings.botMode = "PUBLIC"; await sock.sendMessage(from, { text: "✅ Bot Mode set to PUBLIC!" }, { quoted: m }); return; }
+                if (cleanBody === '3.2') { botSettings.botMode = "PRIVATE"; await sock.sendMessage(from, { text: "✅ Bot Mode set to PRIVATE!" }, { quoted: m }); return; }
+                if (cleanBody === '3.3') { botSettings.botMode = "INBOX"; await sock.sendMessage(from, { text: "✅ Bot Mode set to INBOX!" }, { quoted: m }); return; }
+                if (cleanBody === '4.1') { botSettings.statusRead = "ON"; await sock.sendMessage(from, { text: "✅ Status Read enabled!" }, { quoted: m }); return; }
+                if (cleanBody === '4.2') { botSettings.statusRead = "OFF"; await sock.sendMessage(from, { text: "❌ Status Read disabled!" }, { quoted: m }); return; }
+                if (cleanBody === '5.1') { botSettings.statusReact = "GREEN"; await sock.sendMessage(from, { text: "✅ Status React set to GREEN!" }, { quoted: m }); return; }
+                if (cleanBody === '5.2') { botSettings.statusReact = "RANDOM"; await sock.sendMessage(from, { text: "✅ Status React set to RANDOM!" }, { quoted: m }); return; }
+                if (cleanBody === '5.3') { botSettings.statusReact = "OFF"; await sock.sendMessage(from, { text: "❌ Status React turned OFF!" }, { quoted: m }); return; }
+                if (cleanBody === '7.1') { botSettings.composing = "ON"; await sock.sendMessage(from, { text: "✅ Composing enabled!" }, { quoted: m }); return; }
+                if (cleanBody === '7.2') { botSettings.composing = "OFF"; await sock.sendMessage(from, { text: "❌ Composing disabled!" }, { quoted: m }); return; }
+                if (cleanBody === '9.1') { botSettings.antiDelete = "ON"; await sock.sendMessage(from, { text: "✅ Anti-Delete enabled!" }, { quoted: m }); return; }
+                if (cleanBody === '9.2') { botSettings.antiDelete = "OFF"; await sock.sendMessage(from, { text: "❌ Anti-Delete disabled!" }, { quoted: m }); return; }
+                if (cleanBody === '10.1') { botSettings.antiDelTarget = "SAME"; await sock.sendMessage(from, { text: "✅ Anti-Del Target set to SAME CHAT!" }, { quoted: m }); return; }
+                if (cleanBody === '10.2') { botSettings.antiDelTarget = "PRIVATE"; await sock.sendMessage(from, { text: "✅ Anti-Del Target set to MY INBOX!" }, { quoted: m }); return; }
+                if (cleanBody === '11.1') { botSettings.vvTarget = "SAME"; await sock.sendMessage(from, { text: "✅ View-Once Target set to SAME CHAT!" }, { quoted: m }); return; }
+                if (cleanBody === '11.2') { botSettings.vvTarget = "PRIVATE"; await sock.sendMessage(from, { text: "✅ View-Once Target set to MY INBOX!" }, { quoted: m }); return; }
+                if (cleanBody === '12.1') { botSettings.saveTarget = "SAME"; await sock.sendMessage(from, { text: "✅ Save Target set to SAME CHAT!" }, { quoted: m }); return; }
+                if (cleanBody === '12.2') { botSettings.saveTarget = "PRIVATE"; await sock.sendMessage(from, { text: "✅ Save Target set to MY INBOX!" }, { quoted: m }); return; }
+                if (cleanBody === '13.1') { botSettings.botPower = "ON"; await sock.sendMessage(from, { text: "✅ Bot Power turned ON!" }, { quoted: m }); return; }
+                if (cleanBody === '13.2') { botSettings.botPower = "OFF"; await sock.sendMessage(from, { text: "❌ Bot Power turned OFF!" }, { quoted: m }); return; }
+            }
+
+            if (effectiveCommand === '.ping') {
                 const msgTime = Number(m.messageTimestamp) * 1000;
                 await sock.sendMessage(from, { text: `🏓 *Pong!*\n⚡ Speed: ${Math.abs(Date.now() - msgTime)}ms` }, { quoted: m });
             }
-            else if (command === '.alive') {
+            else if (effectiveCommand === '.alive') {
                 await sock.sendMessage(from, { image: { url: 'https://files.catbox.moe/6gq4ub.jpeg' }, caption: '👋 Hello! I am Dimuwa Mini Bot 24/7 active!' }, { quoted: m });
                 await sock.sendMessage(from, { audio: { url: 'https://files.catbox.moe/vsl1wg.mp3' }, mimetype: 'audio/mp4', ptt: false }, { quoted: m });
             }
-            else if (command === '.setting' || command === '.settings') {
+            else if (effectiveCommand === '.settings') {
                 if (q && val) {
-                    if (q === 'vvtarget' && (val === 'SAME' || val === 'PRIVATE')) {
-                        botSettings.vvTarget = val;
-                        await sock.sendMessage(from, { text: `✅ VV Target updated to: *${val}*` }, { quoted: m });
-                        return;
-                    } else if (q === 'savetarget' && (val === 'SAME' || val === 'PRIVATE')) {
-                        botSettings.saveTarget = val;
-                        await sock.sendMessage(from, { text: `✅ Save Target updated to: *${val}*` }, { quoted: m });
-                        return;
-                    }
+                    if (q === 'alwaysonline' && (val === 'ON' || val === 'OFF')) botSettings.alwaysOnline = val;
+                    else if (q === 'autoread' && (val === 'ON' || val === 'OFF')) botSettings.autoRead = val;
+                    else if (q === 'botmode') botSettings.botMode = val;
+                    else if (q === 'vvtarget') botSettings.vvTarget = val;
+                    else if (q === 'savetarget') botSettings.saveTarget = val;
+                    else if (q === 'botpower' && (val === 'ON' || val === 'OFF')) botSettings.botPower = val;
                 }
 
-                let settingsText = `⚙️ *DIMUWA BOT SETTINGS* ⚙️\n\n` +
-                    `• *Always Online:* ${botSettings.alwaysOnline}\n` +
-                    `• *Auto Read:* ${botSettings.autoRead}\n` +
-                    `• *Bot Mode:* ${botSettings.botMode}\n` +
-                    `• *Status Read:* ${botSettings.statusRead}\n` +
-                    `• *Status React:* ${botSettings.statusReact}\n` +
-                    `• *Anti Delete:* ${botSettings.antiDelete}\n` +
-                    `• *Bot Power:* ${botSettings.botPower}\n` +
-                    `• *VV Target:* ${botSettings.vvTarget}\n` +
-                    `• *Save Target:* ${botSettings.saveTarget}\n\n` +
-                    `💡 *How to change targets:* \`.setting vvtarget private\` or \`.setting savetarget same\`\n\n` +
+                let settingsText = `⚙️ DIMUWA MINI BOT SETTINGS\n` +
+                    `│ Reply with the code below to update\n\n` +
+                    `• PRESENCE & SCOPE •\n\n` +
+                    `01. Always Online [ ${botSettings.alwaysOnline} ]\n` +
+                    `│ 1.1 Enable  •  1.2 Disable\n\n` +
+                    `02. Auto Read [ ${botSettings.autoRead} ]\n` +
+                    `│ 2.1 Enable  •  2.2 Disable\n\n` +
+                    `03. Bot Mode [ ${botSettings.botMode} ]\n` +
+                    `│ 3.1 Public  •  3.2 Private  •  3.3 Inbox\n\n` +
+                    `• AUTOMATIONS & STATUS •\n\n` +
+                    `04. Status Read [ ${botSettings.statusRead} ]\n` +
+                    `│ 4.1 Enable  •  4.2 Disable\n\n` +
+                    `05. Status React [ ${botSettings.statusReact} ]\n` +
+                    `│ 5.1 Green  •  5.2 Random  •  5.3 Off\n\n` +
+                    `07. Composing [ ${botSettings.composing} ]\n` +
+                    `│ 7.1 Enable  •  7.2 Disable\n\n` +
+                    `• SECURITY & SYSTEM •\n\n` +
+                    `09. Anti-Delete [ ${botSettings.antiDelete} ]\n` +
+                    `│ 9.1 Enable  •  9.2 Disable\n\n` +
+                    `10. Anti-Del Target [ ${botSettings.antiDelTarget} ]\n` +
+                    `│ 10.1 Same Chat  •  10.2 My Inbox\n\n` +
+                    `11. View Once (.vv) Target [ ${botSettings.vvTarget} ]\n` +
+                    `│ 11.1 Same Chat  •  11.2 My Inbox\n\n` +
+                    `12. Save (.save) Target [ ${botSettings.saveTarget} ]\n` +
+                    `│ 12.1 Same Chat  •  12.2 My Inbox\n\n` +
+                    `13. Bot Power [ ${botSettings.botPower} ]\n` +
+                    `│ 13.1 Turn ON  •  13.2 Turn Off\n\n` +
                     `© CREATOR BY DIMUTH SATHSARA`;
                 
                 await sock.sendMessage(from, { text: settingsText }, { quoted: m });
             }
-            else if (command === '.menu') {
+            else if (effectiveCommand === '.menu') {
                 const menuText = `👋 DIMUWA MINI BOT 🤖 👑\n` +
                     `-- The Mini Whatsapp Bot Experience --\n\n` +
                     `┌──「 👨‍💻 CREATOR INFO 」──┐\n` +
@@ -242,7 +312,7 @@ async function startBotForUser(phoneNumber, res) {
                     `┌──「 🤖 BOT STATUS 」──┐\n` +
                     `│ 🇱🇰 Bot Name: DIMUWA MINI BOT\n` +
                     `│ 🟢 Status: Online\n` +
-                    `│ ⚙️ Mode: PUBLIC\n` +
+                    `│ ⚙️ Mode: ${botSettings.botMode}\n` +
                     `└────────────────────┘\n\n` +
                     `┌──「 📁 MAIN MENU 」──┐\n` +
                     `│ 1️⃣ 📥 DOWNLOAD (TikTok, FB, YT)\n` +
@@ -252,19 +322,18 @@ async function startBotForUser(phoneNumber, res) {
                     `│ 5️⃣ 🎮 FUN COMMANDS\n` +
                     `│ 6️⃣ 👥 GROUP COMMANDS (.tagall)\n` +
                     `└────────────────────┘\n\n` +
-                    `💡 Usage: .tiktok <url>, .fb <url>, .yt <url>`;
+                    `💡 Type or reply a number (1-6) or command!`;
                 
                 await sock.sendMessage(from, { image: { url: 'https://files.catbox.moe/6gq4ub.jpeg' }, caption: menuText }, { quoted: m });
                 await sock.sendMessage(from, { audio: { url: 'https://files.catbox.moe/vsl1wg.mp3' }, mimetype: 'audio/mp4', ptt: false }, { quoted: m });
             }
-            else if (command === '.tiktok' || command === '.tt' || command === '.fb' || command === '.facebook' || command === '.yt' || command === '.youtube') {
+            else if (effectiveCommand === '.tiktok' || effectiveCommand === '.tt' || effectiveCommand === '.fb' || effectiveCommand === '.facebook' || effectiveCommand === '.yt' || effectiveCommand === '.youtube') {
                 if (!text) {
-                    await sock.sendMessage(from, { text: `⚠️ Please provide a valid link!\nExample: \`${command} <link>\`` }, { quoted: m });
+                    await sock.sendMessage(from, { text: `⚠️ Please provide a valid link!\nExample: \`.tiktok <link>\`` }, { quoted: m });
                     return;
                 }
                 await sock.sendMessage(from, { text: "⏳ *Downloading your media, please wait...*" }, { quoted: m });
                 try {
-                    // Using public APIs for social media downloading
                     const apiURL = `https://api.siputzx.my.id/api/d/tiktok?url=${encodeURIComponent(text)}`;
                     const response = await axios.get(apiURL).catch(() => null);
                     
@@ -272,14 +341,13 @@ async function startBotForUser(phoneNumber, res) {
                         const videoUrl = response.data.data.no_watermark || response.data.data.video;
                         await sock.sendMessage(from, { video: { url: videoUrl }, caption: "📥 *Downloaded by Dimuwa Mini Bot*" }, { quoted: m });
                     } else {
-                        // Fallback generic send if direct api fails
                         await sock.sendMessage(from, { video: { url: text }, caption: "📥 *Downloaded Media*" }, { quoted: m });
                     }
                 } catch (err) {
                     await sock.sendMessage(from, { text: "❌ Failed to download media. Please check the link and try again!" }, { quoted: m });
                 }
             }
-            else if (command === '.save') {
+            else if (effectiveCommand === '.save') {
                 const quotedMsg = m.message.extendedTextMessage?.contextInfo?.quotedMessage;
                 if (!quotedMsg) {
                     await sock.sendMessage(from, { text: "⚠️ Please reply to a status or media message with *.save* to download it!" }, { quoted: m });
@@ -301,30 +369,33 @@ async function startBotForUser(phoneNumber, res) {
                     await sock.sendMessage(destination, { video: buffer, caption: targetMsg.videoMessage.caption || '' });
                 }
             }
-            else if (command === '.vv') {
+            else if (effectiveCommand === '.vv') {
                 const quotedMsg = m.message.extendedTextMessage?.contextInfo?.quotedMessage;
                 if (!quotedMsg) {
                     await sock.sendMessage(from, { text: "⚠️ Please reply to a View-Once message with *.vv* to unlock it!" }, { quoted: m });
                     return;
                 }
-                const vvMsg = quotedMsg.viewOnceMessageV2?.message || quotedMsg.viewOnceMessage?.message;
-                if (!vvMsg) {
-                    await sock.sendMessage(from, { text: "⚠️ This is not a View-Once message!" }, { quoted: m });
+                
+                const innerMsg = quotedMsg.viewOnceMessageV2?.message || quotedMsg.viewOnceMessage?.message || quotedMsg;
+                const type = Object.keys(innerMsg)[0];
+                const mediaMsg = innerMsg[type];
+                
+                if (!mediaMsg || (type !== 'imageMessage' && type !== 'videoMessage')) {
+                    await sock.sendMessage(from, { text: "⚠️ This is not a valid View-Once media message!" }, { quoted: m });
                     return;
                 }
-                const type = Object.keys(vvMsg)[0];
+
                 const destination = botSettings.vvTarget === "PRIVATE" ? botNumberRaw : from;
+                const mediaType = type === 'imageMessage' ? 'image' : 'video';
                 
-                if (type === 'imageMessage') {
-                    const stream = await downloadContentFromMessage(vvMsg.imageMessage, 'image');
-                    let buffer = Buffer.from([]);
-                    for await (const chunk of stream) { buffer = Buffer.concat([buffer, chunk]); }
-                    await sock.sendMessage(destination, { image: buffer, caption: "🔓 *View-Once Unlocked!*\n\n" + (vvMsg.imageMessage.caption || '') });
-                } else if (type === 'videoMessage') {
-                    const stream = await downloadContentFromMessage(vvMsg.videoMessage, 'video');
-                    let buffer = Buffer.from([]);
-                    for await (const chunk of stream) { buffer = Buffer.concat([buffer, chunk]); }
-                    await sock.sendMessage(destination, { video: buffer, caption: "🔓 *View-Once Unlocked!*\n\n" + (vvMsg.videoMessage.caption || '') });
+                const stream = await downloadContentFromMessage(mediaMsg, mediaType);
+                let buffer = Buffer.from([]);
+                for await (const chunk of stream) { buffer = Buffer.concat([buffer, chunk]); }
+
+                if (mediaType === 'image') {
+                    await sock.sendMessage(destination, { image: buffer, caption: "🔓 *View-Once Unlocked by Dimuwa Bot!*\n\n" + (mediaMsg.caption || '') });
+                } else {
+                    await sock.sendMessage(destination, { video: buffer, caption: "🔓 *View-Once Unlocked by Dimuwa Bot!*\n\n" + (mediaMsg.caption || '') });
                 }
             }
         } catch (e) { console.error(e); }
