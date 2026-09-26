@@ -1,7 +1,16 @@
 {
+  "name": "dimuwa-mini-bot",
+  "version": "1.0.0",
+  "description": "WhatsApp Bot with Web Dashboard",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
   "dependencies": {
-    "@whiskeysockets/baileys": "^7.0.0-rc14",
-    "express": "^5.2.1",
-    "pino": "^10.3.1"
+    "@whiskeysockets/baileys": "^6.7.0",
+    "axios": "^1.6.8",
+    "pino": "^8.20.0",
+    "express": "^4.19.2",
+    "cors": "^2.8.5"
   }
 }
