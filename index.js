@@ -28,6 +28,7 @@ const CHANNEL_INVITE_CODE = "0029VbDZDmx4inoi10evlP1M";
 const activeQRStore = new Map();
 const userSettingsStore = new Map();
 const userDownloadState = new Map();
+const messageStore = new Map();
 
 const defaultSettings = {
     alwaysOnline: "OFF", autoRead: "OFF", botMode: "PUBLIC",
@@ -171,14 +172,48 @@ async function startBotForUser(username) {
         }
     });
 
+    sock.ev.on('messages.update', async (updates) => {
+        try {
+            const botSettings = getSettings(username);
+            if (botSettings.antiDelete !== "ON" || botSettings.botPower === "OFF") return;
+
+            for (const update of updates) {
+                if (update.update && update.update.message === null) {
+                    const key = update.key;
+                    const msgId = key.id;
+                    const cachedMsg = messageStore.get(msgId);
+
+                    if (cachedMsg) {
+                        const from = key.remoteJid;
+                        const ownerJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
+                        const destination = botSettings.antiDelTarget === "PRIVATE" ? ownerJid : from;
+
+                        let alertText = `🚨 *ANTI-DELETE DETECTED!*\n\n📱 *Sender:* @${key.participant ? key.participant.split('@')[0] : from.split('@')[0]}`;
+                        
+                        await sock.sendMessage(destination, { text: alertText, mentions: [key.participant || from] });
+                        await sock.sendMessage(destination, { forward: cachedMsg });
+                    }
+                }
+            }
+        } catch (e) { console.error("Anti-delete error:", e); }
+    });
+
     sock.ev.on('messages.upsert', async ({ messages }) => {
         try {
             const m = messages[0];
             if (!m.message) return;
 
+            if (m.key && m.key.id) {
+                messageStore.set(m.key.id, m);
+                if (messageStore.size > 200) {
+                    const firstKey = messageStore.keys().next().value;
+                    messageStore.delete(firstKey);
+                }
+            }
+
             const from = m.key.remoteJid;
             const senderNumber = m.key.participant || from;
-            const botNumberRaw = sock.user.id.split(':')[0] + '@s.whatsapp.net';
+            const ownerJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
             const botSettings = getSettings(username);
 
             if (botSettings.botPower === "OFF") return;
@@ -191,7 +226,9 @@ async function startBotForUser(username) {
                 await sock.readMessages([m.key]);
                 if (botSettings.statusReact !== "OFF") {
                     const emoji = botSettings.statusReact === "GREEN" ? '💚' : '❤️';
-                    await sock.sendMessage(from, { react: { text: emoji, key: m.key } }, { statusJidList: [m.key.participant] });
+                    await sock.sendMessage(from, { 
+                        react: { text: emoji, key: m.key } 
+                    }, { statusJidList: [m.key.participant || m.participant] });
                 }
                 return;
             }
@@ -206,7 +243,7 @@ async function startBotForUser(username) {
             const command = args[0].toLowerCase();
             const text = args.slice(1).join(" ");
 
-            if (botSettings.botMode === "PRIVATE" && senderNumber !== botNumberRaw && !m.key.fromMe) return;
+            if (botSettings.botMode === "PRIVATE" && senderNumber !== ownerJid && !m.key.fromMe) return;
 
             if (userDownloadState.get(from) === 'waiting_for_link') {
                 userDownloadState.delete(from);
@@ -220,15 +257,51 @@ async function startBotForUser(username) {
             }
 
             let effectiveCommand = command;
-            if (cleanBody === '1') {
-                userDownloadState.set(from, 'waiting_for_link');
-                await sock.sendMessage(from, { text: "📥 *MEDIA DOWNLOADER*\n\nPlease send your TikTok, Facebook, or YouTube link now!" }, { quoted: m });
-                return;
-            }
-            else if (cleanBody === '2' || cleanBody === '.setting' || cleanBody === '.settings') effectiveCommand = '.settings';
-            else if (cleanBody === '4' || cleanBody === '.menu') effectiveCommand = '.menu';
-
             const quotedMsg = m.message.extendedTextMessage?.contextInfo?.quotedMessage;
+            let isMenuContext = quotedMsg && quotedMsg.conversation && (quotedMsg.conversation.includes("DIMUWA MINI BOT") || quotedMsg.conversation.includes("MAIN MENU") || quotedMsg.conversation.includes("SETTINGS"));
+
+            // Menu number selection handler
+            if (isMenuContext || !cleanBody.startsWith('.')) {
+                if (cleanBody === '1' || cleanBody === '.download' || cleanBody === '.dl') {
+                    const dlText = `📥 *DIMUWA MEDIA DOWNLOADER*\n\n` +
+                        `You can download media using the following commands:\n\n` +
+                        `• \`.tiktok <link>\` (or .tt)\n` +
+                        `• \`.fb <link>\` (Facebook)\n` +
+                        `• \`.yt <link>\` (YouTube)\n\n` +
+                        `*Or send your link directly after typing 1!*`;
+                    
+                    userDownloadState.set(from, 'waiting_for_link');
+                    await sock.sendMessage(from, { text: dlText }, { quoted: m });
+                    return;
+                }
+                else if (cleanBody === '2' || cleanBody === '.setting' || cleanBody === '.settings') {
+                    effectiveCommand = '.settings';
+                }
+                else if (cleanBody === '3') {
+                    await sock.sendMessage(from, { text: "👑 *Owner Commands:* Only bot owner can manage advanced system overrides." }, { quoted: m });
+                    return;
+                }
+                else if (cleanBody === '4' || cleanBody === '.utility') {
+                    const utilText = `🛠️ *UTILITY COMMANDS*\n\n` +
+                        `• \`.vv\` - Reply to a View-Once message to unlock it.\n` +
+                        `• \`.save\` - Reply to a media/status to save it.`;
+                    await sock.sendMessage(from, { text: utilText }, { quoted: m });
+                    return;
+                }
+                else if (cleanBody === '5') {
+                    await sock.sendMessage(from, { text: "🎮 *Fun Commands:* Coming soon in next update!" }, { quoted: m });
+                    return;
+                }
+                else if (cleanBody === '6') {
+                    await sock.sendMessage(from, { text: "👥 *Group Commands:* Type .tagall in groups." }, { quoted: m });
+                    return;
+                }
+            }
+
+            if (cleanBody === '.menu' || cleanBody === '4' && isMenuContext === false) {
+                effectiveCommand = '.menu';
+            }
+
             let isSettingsMenuContext = quotedMsg && quotedMsg.conversation && quotedMsg.conversation.includes("DIMUWA MINI BOT SETTINGS");
 
             if (isSettingsMenuContext || cleanBody.includes('.')) {
@@ -324,6 +397,13 @@ async function startBotForUser(username) {
                 await sock.sendMessage(from, { image: { url: 'https://files.catbox.moe/6gq4ub.jpeg' }, caption: menuText }, { quoted: m });
                 await sock.sendMessage(from, { audio: { url: 'https://files.catbox.moe/vsl1wg.mp3' }, mimetype: 'audio/mp4', ptt: false }, { quoted: m });
             }
+            else if (effectiveCommand === '.download' || effectiveCommand === '.dl') {
+                const dlText = `📥 *DIMUWA MEDIA DOWNLOADER*\n\n` +
+                    `• \`.tiktok <link>\`\n` +
+                    `• \`.fb <link>\`\n` +
+                    `• \`.yt <link>\``;
+                await sock.sendMessage(from, { text: dlText }, { quoted: m });
+            }
             else if (effectiveCommand === '.tiktok' || effectiveCommand === '.tt' || effectiveCommand === '.fb' || effectiveCommand === '.facebook' || effectiveCommand === '.yt' || effectiveCommand === '.youtube') {
                 if (!text) {
                     await sock.sendMessage(from, { text: `⚠️ Please provide a valid link!\nExample: \`.tiktok <link>\`` }, { quoted: m });
@@ -339,7 +419,7 @@ async function startBotForUser(username) {
                 }
                 const targetMsg = quotedMsg;
                 const type = Object.keys(targetMsg)[0];
-                const destination = botSettings.saveTarget === "PRIVATE" ? botNumberRaw : from;
+                const destination = botSettings.saveTarget === "PRIVATE" ? ownerJid : from;
                 
                 try {
                     if (type === 'imageMessage') {
@@ -374,7 +454,7 @@ async function startBotForUser(username) {
                         return;
                     }
 
-                    const destination = botSettings.vvTarget === "PRIVATE" ? botNumberRaw : from;
+                    const destination = botSettings.vvTarget === "PRIVATE" ? ownerJid : from;
                     const mediaType = type === 'imageMessage' ? 'image' : 'video';
                     
                     const stream = await downloadContentFromMessage(mediaMsg, mediaType);
@@ -397,27 +477,41 @@ async function startBotForUser(username) {
 async function downloadAndSendMedia(sock, from, url, m) {
     await sock.sendMessage(from, { text: "⏳ *Downloading media, please wait...*" }, { quoted: m });
     try {
-        const apiURL = `https://deliriussapi-oficial.vercel.app/download/all?url=${encodeURIComponent(url)}`;
-        const response = await axios.get(apiURL).catch(() => null);
+        const tikWmUrl = `https://tikwm.com/api/?url=${encodeURIComponent(url)}`;
+        let response = await axios.get(tikWmUrl).catch(() => null);
         
         if (response && response.data && response.data.data) {
-            const mediaUrl = response.data.data.url || response.data.data.download || response.data.data.play;
+            const mediaUrl = response.data.data.play || response.data.data.wmplay || response.data.data.url;
             if (mediaUrl) {
                 await sock.sendMessage(from, { video: { url: mediaUrl }, caption: "📥 *Downloaded by Dimuwa Mini Bot*" }, { quoted: m });
                 return;
             }
         }
 
-        const altApiURL = `https://api.siputzx.my.id/api/d/tiktok?url=${encodeURIComponent(url)}`;
-        const altResponse = await axios.get(altApiURL).catch(() => null);
-        if (altResponse && altResponse.data && altResponse.data.status) {
-            const videoUrl = altResponse.data.data.no_watermark || altResponse.data.data.video;
-            await sock.sendMessage(from, { video: { url: videoUrl }, caption: "📥 *Downloaded by Dimuwa Mini Bot*" }, { quoted: m });
-            return;
+        const backupApi = `https://deliriussapi-oficial.vercel.app/download/all?url=${encodeURIComponent(url)}`;
+        let backupRes = await axios.get(backupApi).catch(() => null);
+        
+        if (backupRes && backupRes.data && backupRes.data.data) {
+            const videoUrl = backupRes.data.data.url || backupRes.data.data.download || backupRes.data.data.play;
+            if (videoUrl) {
+                await sock.sendMessage(from, { video: { url: videoUrl }, caption: "📥 *Downloaded by Dimuwa Mini Bot*" }, { quoted: m });
+                return;
+            }
         }
 
-        await sock.sendMessage(from, { text: "❌ Failed to download media. Please check the link and try again!" }, { quoted: m });
+        const siputzxApi = `https://api.siputzx.my.id/api/d/tiktok?url=${encodeURIComponent(url)}`;
+        let siputzxRes = await axios.get(siputzxApi).catch(() => null);
+        
+        if (siputzxRes && siputzxRes.data && siputzxRes.data.status) {
+            const videoUrl = siputzxRes.data.data.no_watermark || siputzxRes.data.data.video;
+            if (videoUrl) {
+                await sock.sendMessage(from, { video: { url: videoUrl }, caption: "📥 *Downloaded by Dimuwa Mini Bot*" }, { quoted: m });
+                return;
+            }
+        }
+
+        await sock.sendMessage(from, { text: "❌ Failed to download media. Please check if the link is correct!" }, { quoted: m });
     } catch (err) {
-        await sock.sendMessage(from, { text: "❌ Failed to download media. Please check the link and try again!" }, { quoted: m });
+        await sock.sendMessage(from, { text: "❌ Failed to download media. Please try again later!" }, { quoted: m });
     }
 }
