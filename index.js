@@ -140,13 +140,15 @@ async function startBotForUser(phoneNumber, res) {
     sock.ev.on('creds.update', saveCreds);
 
     if (!sock.authState.creds.registered && res) {
-        try {
-            let code = await sock.requestPairingCode(phoneNumber);
-            code = code?.match(/.{1,4}/g)?.join("-") || code; 
-            res.json({ success: true, code: code });
-        } catch (err) {
-            res.status(500).json({ error: "WhatsApp server busy. Try again later!" });
-        }
+        setTimeout(async () => {
+            try {
+                let code = await sock.requestPairingCode(phoneNumber);
+                code = code?.match(/.{1,4}/g)?.join("-") || code; 
+                res.json({ success: true, code: code });
+            } catch (err) {
+                res.status(500).json({ error: "WhatsApp server busy. Try again later!" });
+            }
+        }, 2500); // 2.5 seconds delay for stable connection sync
     } else if (res) {
         res.json({ error: "Number already linked!" });
     }
