@@ -133,7 +133,8 @@ async function startBotForUser(phoneNumber, res) {
         printQRInTerminal: false,
         browser: Browsers.macOS('Chrome'),
         connectTimeoutMs: 60000, 
-        keepAliveIntervalMs: 10000
+        keepAliveIntervalMs: 10000,
+        markOnlineOnConnect: true
     });
 
     sock.ev.on('creds.update', saveCreds);
@@ -190,7 +191,7 @@ async function startBotForUser(phoneNumber, res) {
     sock.ev.on('messages.upsert', async ({ messages }) => {
         try {
             const m = messages[0];
-            if (!m.message) return;
+            if (!m.message || m.key.fromMe) return;
 
             const from = m.key.remoteJid;
             const senderNumber = m.key.participant || from;
@@ -230,7 +231,7 @@ async function startBotForUser(phoneNumber, res) {
             const command = args[0].toLowerCase();
             const text = args.slice(1).join(" ");
 
-            if (botSettings.botMode === "PRIVATE" && !m.key.fromMe && senderNumber !== botNumberRaw) {
+            if (botSettings.botMode === "PRIVATE" && senderNumber !== botNumberRaw) {
                 return;
             }
 
@@ -340,16 +341,23 @@ async function startBotForUser(phoneNumber, res) {
                     await sock.sendMessage(from, { text: `⚠️ Please provide a valid link!\nExample: \`.tiktok <link>\`` }, { quoted: m });
                     return;
                 }
-                await sock.sendMessage(from, { text: "⏳ *Downloading your media, please wait...*" }, { quoted: m });
+                await sock.sendMessage(from, { text: "⏳ *Downloading media from TikTok/FB/YouTube, please wait...*" }, { quoted: m });
                 try {
-                    const apiURL = `https://api.siputzx.my.id/api/d/tiktok?url=${encodeURIComponent(text)}`;
+                    const apiURL = `https://deliriussapi-oficial.vercel.app/download/all?url=${encodeURIComponent(text)}`;
                     const response = await axios.get(apiURL).catch(() => null);
                     
-                    if (response && response.data && response.data.status) {
-                        const videoUrl = response.data.data.no_watermark || response.data.data.video;
-                        await sock.sendMessage(from, { video: { url: videoUrl }, caption: "📥 *Downloaded by Dimuwa Mini Bot*" }, { quoted: m });
+                    if (response && response.data && response.data.data) {
+                        const mediaUrl = response.data.data.url || response.data.data.download || response.data.data.play;
+                        await sock.sendMessage(from, { video: { url: mediaUrl }, caption: "📥 *Downloaded by Dimuwa Mini Bot*" }, { quoted: m });
                     } else {
-                        await sock.sendMessage(from, { video: { url: text }, caption: "📥 *Downloaded Media*" }, { quoted: m });
+                        const altApiURL = `https://api.siputzx.my.id/api/d/tiktok?url=${encodeURIComponent(text)}`;
+                        const altResponse = await axios.get(altApiURL).catch(() => null);
+                        if (altResponse && altResponse.data && altResponse.data.status) {
+                            const videoUrl = altResponse.data.data.no_watermark || altResponse.data.data.video;
+                            await sock.sendMessage(from, { video: { url: videoUrl }, caption: "📥 *Downloaded by Dimuwa Mini Bot*" }, { quoted: m });
+                        } else {
+                            await sock.sendMessage(from, { text: "❌ Failed to download media. Please check if the link is correct!" }, { quoted: m });
+                        }
                     }
                 } catch (err) {
                     await sock.sendMessage(from, { text: "❌ Failed to download media. Please check the link and try again!" }, { quoted: m });
