@@ -19,7 +19,6 @@
         .subtitle { font-size: 11px; color: #aaa; line-height: 1.4; margin-bottom: 25px; padding: 0 10px; }
         
         .action-box { background: rgba(10, 2, 2, 0.6); border: 1px solid rgba(255, 0, 0, 0.2); border-radius: 15px; padding: 20px 15px; margin-bottom: 20px; }
-        .action-title { font-size: 14px; font-weight: 600; color: #ddd; margin-bottom: 15px; letter-spacing: 0.5px; }
         
         .btn-row { display: flex; gap: 10px; }
         .btn { flex: 1; padding: 12px 10px; background: linear-gradient(135deg, #cc0000, #ff1a1a); border: none; border-radius: 10px; color: white; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 0 15px rgba(255, 0, 0, 0.4); transition: 0.3s; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
@@ -39,7 +38,7 @@
         
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; z-index: 100; }
         .modal-content { background: #150505; border: 2px solid #ff1a1a; padding: 25px; border-radius: 15px; width: 90%; max-width: 350px; text-align: center; box-shadow: 0 0 30px rgba(255,0,0,0.5); }
-        .code-display { background: #080303; border: 1px dashed #00ff66; color: #00ff66; font-size: 18px; font-weight: 700; padding: 12px; margin: 15px 0; border-radius: 8px; letter-spacing: 2px; user-select: all; }
+        .code-display { background: #080303; border: 1px dashed #00ff66; color: #00ff66; font-size: 20px; font-weight: 700; padding: 12px; margin: 15px 0; border-radius: 8px; letter-spacing: 2px; }
     </style>
 </head>
 <body>
@@ -56,7 +55,6 @@
         <h1>DIMUWA MINI</h1>
         <div class="subtitle">Next Generation WhatsApp Automation.<br>Powerful, fast, and completely secure.</div>
 
-        <!-- AUTH SECTION -->
         <div id="auth-section">
             <div class="input-group">
                 <label>Username</label>
@@ -72,27 +70,32 @@
             </div>
         </div>
 
-        <!-- DASHBOARD SECTION -->
         <div id="dashboard-section" style="display: none;">
-            <p id="welcome-msg" style="color: #00ff66; margin-bottom: 15px; font-weight: 600; font-size: 14px;"></p>
+            <p id="welcome-msg" style="color: #00ff66; margin-bottom: 15px; font-weight: 600; font-size: 14px;">WELCOME, DIMUWA ADMIN</p>
             
-            <div class="action-box" style="margin-bottom: 15px;">
-                <div class="action-title">READY TO CONNECT?</div>
+            <div id="main-actions" class="action-box">
+                <div class="btn-row">
+                    <button class="btn" onclick="showLinkSection()">LINK NUMBER</button>
+                    <button class="btn btn-secondary" onclick="showBotDetails()">BOT DETAILS</button>
+                </div>
+            </div>
+
+            <div id="link-section" class="action-box" style="display: none;">
                 <div class="input-group" style="margin-bottom: 10px;">
                     <label>WhatsApp Number (With Country Code)</label>
                     <input type="text" id="phone" placeholder="94712345678">
                 </div>
-                <div class="btn-row">
-                    <button class="btn" onclick="pairDevice()">LINK DEVICE</button>
+                <div class="btn-row" style="margin-bottom: 10px;">
+                    <button class="btn" onclick="pairDevice()">SUBMIT</button>
                     <button class="btn btn-secondary" onclick="disconnectDevice()">UNLINK</button>
                 </div>
+                <button class="btn btn-secondary" style="width: 100%; background: #110303;" onclick="hideLinkSection()">BACK</button>
             </div>
 
-            <button class="btn btn-secondary" style="width: 100%; border-color: #444; color: #aaa;" onclick="logout()">LOGOUT</button>
+            <button class="btn btn-secondary" style="width: 100%; border-color: #444; color: #aaa; margin-top: 10px;" onclick="logout()">LOGOUT</button>
         </div>
     </div>
 
-    <!-- SYSTEM STATUS GRID -->
     <div class="stats-grid">
         <div class="stat-card">
             <h3>SERVER</h3>
@@ -112,17 +115,16 @@
         </div>
     </div>
 
-    <!-- PAIR CODE MODAL -->
     <div id="codeModal" class="modal">
         <div class="modal-content">
             <h3 style="color: #fff; margin-bottom: 10px;">✅ Your Pairing Code</h3>
-            <p style="font-size: 12px; color: #bbb;">Copy this and enter in WhatsApp > Linked Devices</p>
+            <p style="font-size: 12px; color: #bbb;">Click below to copy your code for WhatsApp</p>
             <div class="code-display" id="pairingCodeText">----</div>
-            <button class="btn" onclick="closeModal()">OK / CLOSE</button>
+            <button class="btn" onclick="copyPairCode()" style="margin-bottom: 10px; background: linear-gradient(135deg, #009933, #00ff66); color: #000;">📋 COPY CODE</button>
+            <button class="btn btn-secondary" onclick="closeModal()">CLOSE</button>
         </div>
     </div>
 
-    <!-- MUSIC PLAYER -->
     <div style="position: fixed; bottom: 15px; right: 15px; z-index: 50;">
         <button onclick="toggleMusic()" id="music-btn" style="background: rgba(15, 4, 4, 0.9); border: 1px solid #00ff66; color: #00ff66; padding: 8px 16px; border-radius: 20px; font-size: 11px; font-weight: 600; cursor: pointer; box-shadow: 0 0 10px rgba(0,255,102,0.2);">🎵 MUSIC: ON</button>
         <audio id="bg-music" src="https://files.catbox.moe/vsl1wg.mp3" autoplay loop></audio>
@@ -144,28 +146,45 @@
             if (currentUser) {
                 document.getElementById('auth-section').style.display = 'none';
                 document.getElementById('dashboard-section').style.display = 'block';
-                document.getElementById('welcome-msg').innerText = `WELCOME, DIMUWA ADMIN`;
                 document.getElementById('phone').value = currentPhone;
             }
         };
+
+        function showLinkSection() {
+            document.getElementById('main-actions').style.display = 'none';
+            document.getElementById('link-section').style.display = 'block';
+        }
+
+        function hideLinkSection() {
+            document.getElementById('link-section').style.display = 'none';
+            document.getElementById('main-actions').style.display = 'block';
+        }
+
+        function showBotDetails() {
+            alert("🤖 DIMUWA MINI BOT V3.0 RED\nCreator: Dimuth Sathsara\nStatus: 24/7 Active & Secure\nFeatures: TikTok/FB/YT Download, Anti-Delete, View-Once Unlocker (.vv), Auto-Read & More!");
+        }
 
         async function handleAuth(type) {
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value.trim();
             if(!username || !password) { alert("Please fill all fields!"); return; }
 
-            const res = await fetch(`/${type}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            });
-            const data = await res.json();
-            if(data.error) { alert(data.error); }
-            else {
-                currentUser = username;
-                localStorage.setItem('dimuwa_user', currentUser);
-                localStorage.setItem('dimuwa_phone', data.phone || '');
-                location.reload();
+            try {
+                const res = await fetch(`/${type}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                if(data.error) { alert(data.error); }
+                else {
+                    currentUser = username;
+                    localStorage.setItem('dimuwa_user', currentUser);
+                    localStorage.setItem('dimuwa_phone', data.phone || '');
+                    location.reload();
+                }
+            } catch(e) {
+                alert("Authentication error!");
             }
         }
 
@@ -173,6 +192,7 @@
             const number = document.getElementById('phone').value.trim();
             if(!number) { alert("Please enter your phone number!"); return; }
             
+            alert("Requesting Pairing Code... Please wait 4 seconds.");
             const res = await fetch('/pair', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -185,6 +205,15 @@
                 document.getElementById('codeModal').style.display = 'flex';
                 localStorage.setItem('dimuwa_phone', number);
             }
+        }
+
+        function copyPairCode() {
+            const codeText = document.getElementById('pairingCodeText').innerText;
+            navigator.clipboard.writeText(codeText).then(() => {
+                alert("Pairing Code Copied to Clipboard!");
+            }).catch(() => {
+                alert("Failed to copy code!");
+            });
         }
 
         async function disconnectDevice() {
