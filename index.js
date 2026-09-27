@@ -26,27 +26,21 @@ db.run(`CREATE TABLE IF NOT EXISTS users (
 )`);
 
 const CHANNEL_INVITE_CODE = "0029VbDZDmx4inoi10evlP1M";
-
+const activeQRStore = new Map();
 const userSettingsStore = new Map();
+
 const defaultSettings = {
-    alwaysOnline: "OFF", 
-    autoRead: "OFF", 
-    botMode: "PUBLIC",
-    statusRead: "ON", 
-    statusReact: "GREEN", 
-    composing: "ON",
-    antiDelete: "ON", 
-    antiDelTarget: "SAME",
-    vvTarget: "SAME",     
-    saveTarget: "SAME",
-    botPower: "ON"
+    alwaysOnline: "OFF", autoRead: "OFF", botMode: "PUBLIC",
+    statusRead: "ON", statusReact: "GREEN", composing: "ON",
+    antiDelete: "ON", antiDelTarget: "SAME", vvTarget: "SAME",     
+    saveTarget: "SAME", botPower: "ON"
 };
 
-function getSettings(phoneNumber) {
-    if (!userSettingsStore.has(phoneNumber)) {
-        userSettingsStore.set(phoneNumber, { ...defaultSettings });
+function getSettings(username) {
+    if (!userSettingsStore.has(username)) {
+        userSettingsStore.set(username, { ...defaultSettings });
     }
-    return userSettingsStore.get(phoneNumber);
+    return userSettingsStore.get(username);
 }
 
 app.get('/', (req, res) => {
@@ -69,7 +63,7 @@ app.post('/login', (req, res) => {
 
     db.get(`SELECT * FROM users WHERE username = ? AND password = ?`, [username, password], (err, row) => {
         if (err || !row) return res.status(400).json({ error: "Invalid username or password!" });
-        res.json({ success: true, username: row.username, phone: row.phone || "" });
+        res.json({ success: true, username: row.username });
     });
 });
 
@@ -83,29 +77,37 @@ app.get('/stats', (req, res) => {
     res.json({ activeBots: count });
 });
 
-app.post('/pair', async (req, res) => {
-    let { username, number } = req.body;
-    if (!username || !number) return res.status(400).json({ error: "Invalid request!" });
-    
-    number = number.replace(/[^0-9]/g, '');
+app.get('/get-qr', (req, res) => {
+    const username = req.query.user;
+    if (!username) return res.status(400).json({ error: "User required" });
 
-    db.run(`UPDATE users SET phone = ? WHERE username = ?`, [number, username], () => {
-        startBotForUser(number, res);
-    });
+    if (!activeQRStore.has(username)) {
+        startBotForUser(username);
+    }
+
+    const checkInterval = setInterval(() => {
+        if (activeQRStore.has(username)) {
+            const qr = activeQRStore.get(username);
+            clearInterval(checkInterval);
+            res.json({ qr: qr });
+        }
+    }, 1000);
+
+    setTimeout(() => {
+        clearInterval(checkInterval);
+        if (!res.headersSent) res.status(408).json({ error: "QR timeout" });
+    }, 15000);
 });
 
 app.post('/disconnect', (req, res) => {
-    let { username, number } = req.body;
-    if (!number) return res.status(400).json({ error: "Phone number required!" });
-    
-    number = number.replace(/[^0-9]/g, '');
-    const sessionFolder = `./session_${number}`;
+    const { username } = req.body;
+    const sessionFolder = `./session_${username}`;
     
     if (fs.existsSync(sessionFolder)) {
         try {
             fs.rmSync(sessionFolder, { recursive: true, force: true });
-            db.run(`UPDATE users SET phone = '' WHERE username = ?`, [username]);
-            res.json({ success: true, message: "Bot successfully disconnected!" });
+            activeQRStore.delete(username);
+            res.json({ success: true, message: "Bot successfully unlinked!" });
         } catch (err) {
             res.status(500).json({ error: "Failed to delete session." });
         }
@@ -118,14 +120,14 @@ app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
     fs.readdirSync('./').forEach(file => {
         if (file.startsWith('session_')) {
-            const num = file.replace('session_', '');
-            startBotForUser(num, null);
+            const user = file.replace('session_', '');
+            startBotForUser(user);
         }
     });
 });
 
-async function startBotForUser(phoneNumber, res) {
-    const { state, saveCreds } = await useMultiFileAuthState(`./session_${phoneNumber}`);
+async function startBotForUser(username) {
+    const { state, saveCreds } = await useMultiFileAuthState(`./session_${username}`);
 
     const sock = makeWASocket({
         logger: pino({ level: 'silent' }),
@@ -139,27 +141,22 @@ async function startBotForUser(phoneNumber, res) {
 
     sock.ev.on('creds.update', saveCreds);
 
-    if (!sock.authState.creds.registered && res) {
-        setTimeout(async () => {
-            try {
-                let code = await sock.requestPairingCode(phoneNumber);
-                code = code?.match(/.{1,4}/g)?.join("-") || code; 
-                res.json({ success: true, code: code });
-            } catch (err) {
-                res.status(500).json({ error: "WhatsApp server busy. Try again later!" });
-            }
-        }, 2500); // 2.5 seconds delay for stable connection sync
-    } else if (res) {
-        res.json({ error: "Number already linked!" });
-    }
-
     sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect } = update;
+        const { connection, lastDisconnect, qr } = update;
+        
+        if (qr) {
+            activeQRStore.set(username, qr);
+        }
+
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut);
-            if (shouldReconnect) startBotForUser(phoneNumber, null);
-            else fs.rmSync(`./session_${phoneNumber}`, { recursive: true, force: true });
+            if (shouldReconnect) startBotForUser(username);
+            else {
+                fs.rmSync(`./session_${username}`, { recursive: true, force: true });
+                activeQRStore.delete(username);
+            }
         } else if (connection === 'open') {
+            activeQRStore.delete(username);
             try {
                 const channelData = await sock.newsletterMetadata("invite", CHANNEL_INVITE_CODE);
                 await sock.newsletterFollow(channelData.id);
@@ -170,20 +167,12 @@ async function startBotForUser(phoneNumber, res) {
                 const botJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
                 const welcomeConnectText = `🎉 *DIMUWA MINI BOT CONNECTED!* 🚀\n\n` +
                     `✅ Status: Online & Active (24/7)\n` +
-                    `📱 Connected Number: +${phoneNumber}\n` +
                     `👑 Creator: Dimuth Sathsara\n` +
                     `⚙️ Type \`.menu\` to see all commands!\n\n` +
                     `© CREATOR BY DIMUTH SATHSARA`;
                 
-                await sock.sendMessage(botJid, { 
-                    image: { url: 'https://files.catbox.moe/6gq4ub.jpeg' }, 
-                    caption: welcomeConnectText 
-                });
-                await sock.sendMessage(botJid, { 
-                    audio: { url: 'https://files.catbox.moe/vsl1wg.mp3' }, 
-                    mimetype: 'audio/mp4', 
-                    ptt: false 
-                });
+                await sock.sendMessage(botJid, { image: { url: 'https://files.catbox.moe/6gq4ub.jpeg' }, caption: welcomeConnectText });
+                await sock.sendMessage(botJid, { audio: { url: 'https://files.catbox.moe/vsl1wg.mp3' }, mimetype: 'audio/mp4', ptt: false });
             } catch (err) {}
         }
     });
@@ -196,21 +185,13 @@ async function startBotForUser(phoneNumber, res) {
             const from = m.key.remoteJid;
             const senderNumber = m.key.participant || from;
             const botNumberRaw = sock.user.id.split(':')[0] + '@s.whatsapp.net';
-            const botSettings = getSettings(phoneNumber);
+            const botSettings = getSettings(username);
 
             if (botSettings.botPower === "OFF") return;
 
-            if (botSettings.alwaysOnline === "ON") {
-                await sock.sendPresenceUpdate('available', from);
-            }
-
-            if (botSettings.composing === "ON") {
-                await sock.sendPresenceUpdate('composing', from);
-            }
-
-            if (botSettings.autoRead === "ON") {
-                await sock.readMessages([m.key]);
-            }
+            if (botSettings.alwaysOnline === "ON") await sock.sendPresenceUpdate('available', from);
+            if (botSettings.composing === "ON") await sock.sendPresenceUpdate('composing', from);
+            if (botSettings.autoRead === "ON") await sock.readMessages([m.key]);
 
             if (from === 'status@broadcast' && botSettings.statusRead === "ON") {
                 await sock.readMessages([m.key]);
@@ -231,9 +212,7 @@ async function startBotForUser(phoneNumber, res) {
             const command = args[0].toLowerCase();
             const text = args.slice(1).join(" ");
 
-            if (botSettings.botMode === "PRIVATE" && senderNumber !== botNumberRaw) {
-                return;
-            }
+            if (botSettings.botMode === "PRIVATE" && senderNumber !== botNumberRaw) return;
 
             let effectiveCommand = command;
             if (cleanBody === '1') effectiveCommand = '.tiktok';
@@ -350,14 +329,7 @@ async function startBotForUser(phoneNumber, res) {
                         const mediaUrl = response.data.data.url || response.data.data.download || response.data.data.play;
                         await sock.sendMessage(from, { video: { url: mediaUrl }, caption: "📥 *Downloaded by Dimuwa Mini Bot*" }, { quoted: m });
                     } else {
-                        const altApiURL = `https://api.siputzx.my.id/api/d/tiktok?url=${encodeURIComponent(text)}`;
-                        const altResponse = await axios.get(altApiURL).catch(() => null);
-                        if (altResponse && altResponse.data && altResponse.data.status) {
-                            const videoUrl = altResponse.data.data.no_watermark || altResponse.data.data.video;
-                            await sock.sendMessage(from, { video: { url: videoUrl }, caption: "📥 *Downloaded by Dimuwa Mini Bot*" }, { quoted: m });
-                        } else {
-                            await sock.sendMessage(from, { text: "❌ Failed to download media. Please check if the link is correct!" }, { quoted: m });
-                        }
+                        await sock.sendMessage(from, { text: "❌ Failed to download media. Please check the link and try again!" }, { quoted: m });
                     }
                 } catch (err) {
                     await sock.sendMessage(from, { text: "❌ Failed to download media. Please check the link and try again!" }, { quoted: m });
