@@ -192,7 +192,7 @@
             const number = document.getElementById('phone').value.trim();
             if(!number) { alert("Please enter your phone number!"); return; }
             
-            alert("Requesting Pairing Code... Please wait 4 seconds.");
+            alert("Requesting Pairing Code... Please wait.");
             const res = await fetch('/pair', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
