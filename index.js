@@ -28,6 +28,7 @@ db.run(`CREATE TABLE IF NOT EXISTS users (
 const CHANNEL_INVITE_CODE = "0029VbDZDmx4inoi10evlP1M";
 const activeQRStore = new Map();
 const userSettingsStore = new Map();
+const userDownloadState = new Map();
 
 const defaultSettings = {
     alwaysOnline: "OFF", autoRead: "OFF", botMode: "PUBLIC",
@@ -180,7 +181,7 @@ async function startBotForUser(username) {
     sock.ev.on('messages.upsert', async ({ messages }) => {
         try {
             const m = messages[0];
-            if (!m.message || m.key.fromMe) return;
+            if (!m.message) return;
 
             const from = m.key.remoteJid;
             const senderNumber = m.key.participant || from;
@@ -193,11 +194,14 @@ async function startBotForUser(username) {
             if (botSettings.composing === "ON") await sock.sendPresenceUpdate('composing', from);
             if (botSettings.autoRead === "ON") await sock.readMessages([m.key]);
 
+            // Status Seen & React Fix
             if (from === 'status@broadcast' && botSettings.statusRead === "ON") {
                 await sock.readMessages([m.key]);
                 if (botSettings.statusReact !== "OFF") {
                     const emoji = botSettings.statusReact === "GREEN" ? '💚' : '❤️';
-                    await sock.sendMessage(from, { react: { text: emoji, key: m.key } }, { statusJidList: [m.key.participant] });
+                    await sock.sendMessage(from, { 
+                        react: { text: emoji, key: m.key } 
+                    }, { statusJidList: [m.key.participant] });
                 }
                 return;
             }
@@ -212,10 +216,25 @@ async function startBotForUser(username) {
             const command = args[0].toLowerCase();
             const text = args.slice(1).join(" ");
 
-            if (botSettings.botMode === "PRIVATE" && senderNumber !== botNumberRaw) return;
+            if (botSettings.botMode === "PRIVATE" && senderNumber !== botNumberRaw && !m.key.fromMe) return;
+
+            if (userDownloadState.get(from) === 'waiting_for_link') {
+                userDownloadState.delete(from);
+                const mediaLink = cleanBody;
+                if (!mediaLink.startsWith('http')) {
+                    await sock.sendMessage(from, { text: "⚠️ Invalid link provided! Please send a valid URL." }, { quoted: m });
+                    return;
+                }
+                await downloadAndSendMedia(sock, from, mediaLink, m);
+                return;
+            }
 
             let effectiveCommand = command;
-            if (cleanBody === '1') effectiveCommand = '.tiktok';
+            if (cleanBody === '1') {
+                userDownloadState.set(from, 'waiting_for_link');
+                await sock.sendMessage(from, { text: "📥 *MEDIA DOWNLOADER*\n\nPlease send your TikTok, Facebook, or YouTube link now!" }, { quoted: m });
+                return;
+            }
             else if (cleanBody === '2' || cleanBody === '.setting' || cleanBody === '.settings') effectiveCommand = '.settings';
             else if (cleanBody === '4' || cleanBody === '.menu') effectiveCommand = '.menu';
 
@@ -320,20 +339,7 @@ async function startBotForUser(username) {
                     await sock.sendMessage(from, { text: `⚠️ Please provide a valid link!\nExample: \`.tiktok <link>\`` }, { quoted: m });
                     return;
                 }
-                await sock.sendMessage(from, { text: "⏳ *Downloading media from TikTok/FB/YouTube, please wait...*" }, { quoted: m });
-                try {
-                    const apiURL = `https://deliriussapi-oficial.vercel.app/download/all?url=${encodeURIComponent(text)}`;
-                    const response = await axios.get(apiURL).catch(() => null);
-                    
-                    if (response && response.data && response.data.data) {
-                        const mediaUrl = response.data.data.url || response.data.data.download || response.data.data.play;
-                        await sock.sendMessage(from, { video: { url: mediaUrl }, caption: "📥 *Downloaded by Dimuwa Mini Bot*" }, { quoted: m });
-                    } else {
-                        await sock.sendMessage(from, { text: "❌ Failed to download media. Please check the link and try again!" }, { quoted: m });
-                    }
-                } catch (err) {
-                    await sock.sendMessage(from, { text: "❌ Failed to download media. Please check the link and try again!" }, { quoted: m });
-                }
+                await downloadAndSendMedia(sock, from, text, m);
             }
             else if (effectiveCommand === '.save') {
                 const quotedMsg = m.message.extendedTextMessage?.contextInfo?.quotedMessage;
@@ -345,16 +351,20 @@ async function startBotForUser(username) {
                 const type = Object.keys(targetMsg)[0];
                 const destination = botSettings.saveTarget === "PRIVATE" ? botNumberRaw : from;
                 
-                if (type === 'imageMessage') {
-                    const stream = await downloadContentFromMessage(targetMsg.imageMessage, 'image');
-                    let buffer = Buffer.from([]);
-                    for await (const chunk of stream) { buffer = Buffer.concat([buffer, chunk]); }
-                    await sock.sendMessage(destination, { image: buffer, caption: targetMsg.imageMessage.caption || '' });
-                } else if (type === 'videoMessage') {
-                    const stream = await downloadContentFromMessage(targetMsg.videoMessage, 'video');
-                    let buffer = Buffer.from([]);
-                    for await (const chunk of stream) { buffer = Buffer.concat([buffer, chunk]); }
-                    await sock.sendMessage(destination, { video: buffer, caption: targetMsg.videoMessage.caption || '' });
+                try {
+                    if (type === 'imageMessage') {
+                        const stream = await downloadContentFromMessage(targetMsg.imageMessage, 'image');
+                        let buffer = Buffer.from([]);
+                        for await (const chunk of stream) { buffer = Buffer.concat([buffer, chunk]); }
+                        await sock.sendMessage(destination, { image: buffer, caption: targetMsg.imageMessage.caption || '' });
+                    } else if (type === 'videoMessage') {
+                        const stream = await downloadContentFromMessage(targetMsg.videoMessage, 'video');
+                        let buffer = Buffer.from([]);
+                        for await (const chunk of stream) { buffer = Buffer.concat([buffer, chunk]); }
+                        await sock.sendMessage(destination, { video: buffer, caption: targetMsg.videoMessage.caption || '' });
+                    }
+                } catch (err) {
+                    await sock.sendMessage(from, { text: "❌ Failed to save media. Please try again!" }, { quoted: m });
                 }
             }
             else if (effectiveCommand === '.vv') {
@@ -364,28 +374,60 @@ async function startBotForUser(username) {
                     return;
                 }
                 
-                const innerMsg = quotedMsg.viewOnceMessageV2?.message || quotedMsg.viewOnceMessage?.message || quotedMsg;
-                const type = Object.keys(innerMsg)[0];
-                const mediaMsg = innerMsg[type];
-                
-                if (!mediaMsg || (type !== 'imageMessage' && type !== 'videoMessage')) {
-                    await sock.sendMessage(from, { text: "⚠️ This is not a valid View-Once media message!" }, { quoted: m });
-                    return;
-                }
+                try {
+                    const innerMsg = quotedMsg.viewOnceMessageV2?.message || quotedMsg.viewOnceMessage?.message || quotedMsg;
+                    const type = Object.keys(innerMsg)[0];
+                    const mediaMsg = innerMsg[type];
+                    
+                    if (!mediaMsg || (type !== 'imageMessage' && type !== 'videoMessage')) {
+                        await sock.sendMessage(from, { text: "⚠️ This is not a valid View-Once media message!" }, { quoted: m });
+                        return;
+                    }
 
-                const destination = botSettings.vvTarget === "PRIVATE" ? botNumberRaw : from;
-                const mediaType = type === 'imageMessage' ? 'image' : 'video';
-                
-                const stream = await downloadContentFromMessage(mediaMsg, mediaType);
-                let buffer = Buffer.from([]);
-                for await (const chunk of stream) { buffer = Buffer.concat([buffer, chunk]); }
+                    const destination = botSettings.vvTarget === "PRIVATE" ? botNumberRaw : from;
+                    const mediaType = type === 'imageMessage' ? 'image' : 'video';
+                    
+                    const stream = await downloadContentFromMessage(mediaMsg, mediaType);
+                    let buffer = Buffer.from([]);
+                    for await (const chunk of stream) { buffer = Buffer.concat([buffer, chunk]); }
 
-                if (mediaType === 'image') {
-                    await sock.sendMessage(destination, { image: buffer, caption: "🔓 *View-Once Unlocked by Dimuwa Bot!*\n\n" + (mediaMsg.caption || '') });
-                } else {
-                    await sock.sendMessage(destination, { video: buffer, caption: "🔓 *View-Once Unlocked by Dimuwa Bot!*\n\n" + (mediaMsg.caption || '') });
+                    if (mediaType === 'image') {
+                        await sock.sendMessage(destination, { image: buffer, caption: "🔓 *View-Once Unlocked by Dimuwa Bot!*\n\n" + (mediaMsg.caption || '') });
+                    } else {
+                        await sock.sendMessage(destination, { video: buffer, caption: "🔓 *View-Once Unlocked by Dimuwa Bot!*\n\n" + (mediaMsg.caption || '') });
+                    }
+                } catch (err) {
+                    await sock.sendMessage(from, { text: "❌ Failed to unlock View-Once media. Please try replying directly to the view-once message!" }, { quoted: m });
                 }
             }
         } catch (e) { console.error(e); }
     });
+}
+
+async function downloadAndSendMedia(sock, from, url, m) {
+    await sock.sendMessage(from, { text: "⏳ *Downloading media, please wait...*" }, { quoted: m });
+    try {
+        const apiURL = `https://deliriussapi-oficial.vercel.app/download/all?url=${encodeURIComponent(url)}`;
+        const response = await axios.get(apiURL).catch(() => null);
+        
+        if (response && response.data && response.data.data) {
+            const mediaUrl = response.data.data.url || response.data.data.download || response.data.data.play;
+            if (mediaUrl) {
+                await sock.sendMessage(from, { video: { url: mediaUrl }, caption: "📥 *Downloaded by Dimuwa Mini Bot*" }, { quoted: m });
+                return;
+            }
+        }
+
+        const altApiURL = `https://api.siputzx.my.id/api/d/tiktok?url=${encodeURIComponent(url)}`;
+        const altResponse = await axios.get(altApiURL).catch(() => null);
+        if (altResponse && altResponse.data && altResponse.data.status) {
+            const videoUrl = altResponse.data.data.no_watermark || altResponse.data.data.video;
+            await sock.sendMessage(from, { video: { url: videoUrl }, caption: "📥 *Downloaded by Dimuwa Mini Bot*" }, { quoted: m });
+            return;
+        }
+
+        await sock.sendMessage(from, { text: "❌ Failed to download media. Please check the link and try again!" }, { quoted: m });
+    } catch (err) {
+        await sock.sendMessage(from, { text: "❌ Failed to download media. Please check the link and try again!" }, { quoted: m });
+    }
 }
