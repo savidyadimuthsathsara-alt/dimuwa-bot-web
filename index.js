@@ -15,7 +15,6 @@ app.use(express.json());
 
 const db = new sqlite3.Database('./database.db', (err) => {
     if (err) console.error("Database connection error:", err.message);
-    else console.log("Connected to SQLite Database.");
 });
 
 db.run(`CREATE TABLE IF NOT EXISTS users (
@@ -82,6 +81,11 @@ app.get('/get-qr', (req, res) => {
     const username = req.query.user;
     if (!username) return res.status(400).json({ error: "User required" });
 
+    const sessionPath = `./session_${username}`;
+    if (fs.existsSync(sessionPath) && !activeQRStore.has(username)) {
+        try { fs.rmSync(sessionPath, { recursive: true, force: true }); } catch(e){}
+    }
+
     if (!activeQRStore.has(username)) {
         startBotForUser(username);
     }
@@ -97,7 +101,7 @@ app.get('/get-qr', (req, res) => {
     setTimeout(() => {
         clearInterval(checkInterval);
         if (!res.headersSent) res.status(408).json({ error: "QR timeout" });
-    }, 15000);
+    }, 20000);
 });
 
 app.post('/disconnect', (req, res) => {
@@ -131,7 +135,7 @@ async function startBotForUser(username) {
     const { state, saveCreds } = await useMultiFileAuthState(`./session_${username}`);
 
     const sock = makeWASocket({
-        logger: pino({ level: 'silent' }), // Completely silent logger to prevent log spam
+        logger: pino({ level: 'silent' }),
         auth: state,
         printQRInTerminal: false,
         browser: Browsers.macOS('Chrome'),
@@ -151,9 +155,10 @@ async function startBotForUser(username) {
 
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut);
-            if (shouldReconnect) startBotForUser(username);
-            else {
-                fs.rmSync(`./session_${username}`, { recursive: true, force: true });
+            if (shouldReconnect) {
+                setTimeout(() => startBotForUser(username), 3000);
+            } else {
+                try { fs.rmSync(`./session_${username}`, { recursive: true, force: true }); } catch(e){}
                 activeQRStore.delete(username);
             }
         } else if (connection === 'open') {
@@ -162,18 +167,6 @@ async function startBotForUser(username) {
                 const channelData = await sock.newsletterMetadata("invite", CHANNEL_INVITE_CODE);
                 await sock.newsletterFollow(channelData.id);
                 await sock.newsletterMute(channelData.id); 
-            } catch (err) {}
-
-            try {
-                const botJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
-                const welcomeConnectText = `🎉 *DIMUWA MINI BOT CONNECTED!* 🚀\n\n` +
-                    `✅ Status: Online & Active (24/7)\n` +
-                    `👑 Creator: Dimuth Sathsara\n` +
-                    `⚙️ Type \`.menu\` to see all commands!\n\n` +
-                    `© CREATOR BY DIMUTH SATHSARA`;
-                
-                await sock.sendMessage(botJid, { image: { url: 'https://files.catbox.moe/6gq4ub.jpeg' }, caption: welcomeConnectText });
-                await sock.sendMessage(botJid, { audio: { url: 'https://files.catbox.moe/vsl1wg.mp3' }, mimetype: 'audio/mp4', ptt: false });
             } catch (err) {}
         }
     });
@@ -198,9 +191,7 @@ async function startBotForUser(username) {
                 await sock.readMessages([m.key]);
                 if (botSettings.statusReact !== "OFF") {
                     const emoji = botSettings.statusReact === "GREEN" ? '💚' : '❤️';
-                    await sock.sendMessage(from, { 
-                        react: { text: emoji, key: m.key } 
-                    }, { statusJidList: [m.key.participant] });
+                    await sock.sendMessage(from, { react: { text: emoji, key: m.key } }, { statusJidList: [m.key.participant] });
                 }
                 return;
             }
