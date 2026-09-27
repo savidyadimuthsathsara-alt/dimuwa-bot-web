@@ -38,7 +38,7 @@
         
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; z-index: 100; }
         .modal-content { background: #150505; border: 2px solid #ff1a1a; padding: 25px; border-radius: 15px; width: 90%; max-width: 350px; text-align: center; box-shadow: 0 0 30px rgba(255,0,0,0.5); }
-        .code-display { background: #080303; border: 1px dashed #00ff66; color: #00ff66; font-size: 20px; font-weight: 700; padding: 12px; margin: 15px 0; border-radius: 8px; letter-spacing: 2px; }
+        .qr-display { background: #fff; padding: 10px; border-radius: 10px; margin: 15px 0; display: inline-block; }
     </style>
 </head>
 <body>
@@ -74,22 +74,11 @@
             <p id="welcome-msg" style="color: #00ff66; margin-bottom: 15px; font-weight: 600; font-size: 14px;">WELCOME, DIMUWA ADMIN</p>
             
             <div id="main-actions" class="action-box">
-                <div class="btn-row">
-                    <button class="btn" onclick="showLinkSection()">LINK NUMBER</button>
+                <div class="btn-row" style="margin-bottom: 10px;">
+                    <button class="btn" onclick="loadQRCode()">SCAN QR CODE</button>
                     <button class="btn btn-secondary" onclick="showBotDetails()">BOT DETAILS</button>
                 </div>
-            </div>
-
-            <div id="link-section" class="action-box" style="display: none;">
-                <div class="input-group" style="margin-bottom: 10px;">
-                    <label>WhatsApp Number (With Country Code)</label>
-                    <input type="text" id="phone" placeholder="94712345678">
-                </div>
-                <div class="btn-row" style="margin-bottom: 10px;">
-                    <button class="btn" onclick="pairDevice()">SUBMIT</button>
-                    <button class="btn btn-secondary" onclick="disconnectDevice()">UNLINK</button>
-                </div>
-                <button class="btn btn-secondary" style="width: 100%; background: #110303;" onclick="hideLinkSection()">BACK</button>
+                <button class="btn btn-secondary" style="width: 100%; border-color: #ff3333; color: #ff9999;" onclick="disconnectDevice()">UNLINK BOT</button>
             </div>
 
             <button class="btn btn-secondary" style="width: 100%; border-color: #444; color: #aaa; margin-top: 10px;" onclick="logout()">LOGOUT</button>
@@ -117,10 +106,10 @@
 
     <div id="codeModal" class="modal">
         <div class="modal-content">
-            <h3 style="color: #fff; margin-bottom: 10px;">✅ Your Pairing Code</h3>
-            <p style="font-size: 12px; color: #bbb;">Click below to copy your code for WhatsApp</p>
-            <div class="code-display" id="pairingCodeText">----</div>
-            <button class="btn" onclick="copyPairCode()" style="margin-bottom: 10px; background: linear-gradient(135deg, #009933, #00ff66); color: #000;">📋 COPY CODE</button>
+            <h3 style="color: #fff; margin-bottom: 5px;">📷 Scan WhatsApp QR</h3>
+            <p style="font-size: 11px; color: #bbb; margin-bottom: 10px;">Go to Linked Devices -> Link a Device on WhatsApp</p>
+            <div class="qr-display" id="qrContainer">Loading QR...</div>
+            <br>
             <button class="btn btn-secondary" onclick="closeModal()">CLOSE</button>
         </div>
     </div>
@@ -134,9 +123,9 @@
         © 2026 DIMUWA BOT. Created by DIMUTH SATHSARA
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
     <script>
         let currentUser = localStorage.getItem('dimuwa_user') || null;
-        let currentPhone = localStorage.getItem('dimuwa_phone') || '';
 
         window.onload = () => {
             fetchStats();
@@ -146,22 +135,11 @@
             if (currentUser) {
                 document.getElementById('auth-section').style.display = 'none';
                 document.getElementById('dashboard-section').style.display = 'block';
-                document.getElementById('phone').value = currentPhone;
             }
         };
 
-        function showLinkSection() {
-            document.getElementById('main-actions').style.display = 'none';
-            document.getElementById('link-section').style.display = 'block';
-        }
-
-        function hideLinkSection() {
-            document.getElementById('link-section').style.display = 'none';
-            document.getElementById('main-actions').style.display = 'block';
-        }
-
         function showBotDetails() {
-            alert("🤖 DIMUWA MINI BOT V3.0 RED\nCreator: Dimuth Sathsara\nStatus: 24/7 Active & Secure\nFeatures: TikTok/FB/YT Download, Anti-Delete, View-Once Unlocker (.vv), Auto-Read & More!");
+            alert("🤖 DIMUWA MINI BOT V3.0 RED\nCreator: Dimuth Sathsara\nStatus: 24/7 Active & Secure\nFeatures: TikTok/FB/YT Download, Anti-Delete, View-Once Unlocker (.vv), Auto-Read & QR Connect!");
         }
 
         async function handleAuth(type) {
@@ -180,7 +158,6 @@
                 else {
                     currentUser = username;
                     localStorage.setItem('dimuwa_user', currentUser);
-                    localStorage.setItem('dimuwa_phone', data.phone || '');
                     location.reload();
                 }
             } catch(e) {
@@ -188,47 +165,34 @@
             }
         }
 
-        async function pairDevice() {
-            const number = document.getElementById('phone').value.trim();
-            if(!number) { alert("Please enter your phone number!"); return; }
+        async function loadQRCode() {
+            document.getElementById('codeModal').style.display = 'flex';
+            document.getElementById('qrContainer').innerHTML = "Generating QR Code...";
             
-            alert("Requesting Pairing Code... Please wait.");
-            const res = await fetch('/pair', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: currentUser, number })
-            });
-            const data = await res.json();
-            if(data.error) alert(data.error);
-            else if(data.code) {
-                document.getElementById('pairingCodeText').innerText = data.code;
-                document.getElementById('codeModal').style.display = 'flex';
-                localStorage.setItem('dimuwa_phone', number);
+            try {
+                const res = await fetch(`/get-qr?user=${encodeURIComponent(currentUser)}`);
+                const data = await res.json();
+                if(data.qr) {
+                    let qr = qrcode(0, 'M');
+                    qr.addData(data.qr);
+                    qr.make();
+                    document.getElementById('qrContainer').innerHTML = qr.createImgTag(5);
+                } else {
+                    document.getElementById('qrContainer').innerHTML = "<p style='color:red;'>Failed to load QR. Try again!</p>";
+                }
+            } catch(e) {
+                document.getElementById('qrContainer').innerHTML = "<p style='color:red;'>Connection error!</p>";
             }
-        }
-
-        function copyPairCode() {
-            const codeText = document.getElementById('pairingCodeText').innerText;
-            navigator.clipboard.writeText(codeText).then(() => {
-                alert("Pairing Code Copied to Clipboard!");
-            }).catch(() => {
-                alert("Failed to copy code!");
-            });
         }
 
         async function disconnectDevice() {
-            const number = document.getElementById('phone').value.trim();
             const res = await fetch('/disconnect', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: currentUser, number })
+                body: JSON.stringify({ username: currentUser })
             });
             const data = await res.json();
             alert(data.message || data.error);
-            if(data.success) {
-                localStorage.setItem('dimuwa_phone', '');
-                document.getElementById('phone').value = '';
-            }
         }
 
         function logout() {
