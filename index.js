@@ -131,7 +131,7 @@ async function startBotForUser(username) {
     const { state, saveCreds } = await useMultiFileAuthState(`./session_${username}`);
 
     const sock = makeWASocket({
-        logger: pino({ level: 'silent' }),
+        logger: pino({ level: 'silent' }), // Completely silent logger to prevent log spam
         auth: state,
         printQRInTerminal: false,
         browser: Browsers.macOS('Chrome'),
@@ -194,7 +194,6 @@ async function startBotForUser(username) {
             if (botSettings.composing === "ON") await sock.sendPresenceUpdate('composing', from);
             if (botSettings.autoRead === "ON") await sock.readMessages([m.key]);
 
-            // Status Seen & React Fix
             if (from === 'status@broadcast' && botSettings.statusRead === "ON") {
                 await sock.readMessages([m.key]);
                 if (botSettings.statusReact !== "OFF") {
