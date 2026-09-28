@@ -3,243 +3,154 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DIMUWA MINI BOT - V3.0 RED</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <title>Dimuwa Mini Bot Dashboard</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
-        body { background-color: #080303; color: #fff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        .top-bar { width: 100%; display: flex; justify-content: space-between; align-items: center; max-width: 450px; font-weight: 600; color: #ff3333; font-size: 14px; margin-bottom: 20px; }
-        .online-dot { width: 10px; height: 10px; background-color: #00ff66; border-radius: 50%; display: inline-block; box-shadow: 0 0 10px #00ff66; margin-right: 5px; }
-        
-        .container { width: 100%; max-width: 420px; background: rgba(18, 5, 5, 0.9); border: 1px solid rgba(255, 0, 0, 0.25); border-radius: 20px; padding: 25px 20px; text-align: center; box-shadow: 0 0 35px rgba(255, 0, 0, 0.15); margin-bottom: 20px; }
-        .logo-box { width: 130px; height: 130px; margin: 0 auto 15px; border-radius: 25px; border: 2px solid #ff1a1a; box-shadow: 0 0 25px rgba(255, 0, 0, 0.6); overflow: hidden; }
-        .logo-box img { width: 100%; height: 100%; object-fit: cover; }
-        
-        h1 { font-size: 26px; color: #ff1a1a; margin-bottom: 5px; font-weight: 700; letter-spacing: 1px; text-shadow: 0 0 12px rgba(255, 0, 0, 0.4); }
-        .subtitle { font-size: 11px; color: #aaa; line-height: 1.4; margin-bottom: 25px; padding: 0 10px; }
-        
-        .action-box { background: rgba(10, 2, 2, 0.6); border: 1px solid rgba(255, 0, 0, 0.2); border-radius: 15px; padding: 20px 15px; margin-bottom: 20px; }
-        
-        .btn-row { display: flex; gap: 10px; }
-        .btn { flex: 1; padding: 12px 10px; background: linear-gradient(135deg, #cc0000, #ff1a1a); border: none; border-radius: 10px; color: white; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 0 15px rgba(255, 0, 0, 0.4); transition: 0.3s; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
-        .btn:hover { background: linear-gradient(135deg, #ff1a1a, #ff4d4d); box-shadow: 0 0 25px rgba(255, 0, 0, 0.7); }
-        .btn-secondary { background: rgba(25, 8, 8, 0.9); border: 1px solid #ff3333; color: #ff9999; }
-
-        .input-group { margin-bottom: 15px; text-align: left; }
-        label { display: block; font-size: 12px; color: #ff9999; margin-bottom: 5px; margin-left: 3px; }
-        input { width: 100%; padding: 12px 15px; background: #080303; border: 1px solid #ff3333; border-radius: 10px; color: #fff; font-size: 14px; outline: none; }
-
-        .stats-grid { width: 100%; max-width: 420px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
-        .stat-card { background: rgba(18, 5, 5, 0.9); border: 1px solid rgba(255, 0, 0, 0.25); border-radius: 15px; padding: 15px; text-align: left; }
-        .stat-card h3 { font-size: 11px; color: #888; margin-bottom: 5px; letter-spacing: 0.5px; font-weight: 600; }
-        .stat-card p { font-size: 18px; font-weight: 700; color: #ff3333; }
-
-        .footer { font-size: 11px; color: #666; margin-top: 10px; }
-        
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; z-index: 100; }
-        .modal-content { background: #150505; border: 2px solid #ff1a1a; padding: 25px; border-radius: 15px; width: 90%; max-width: 350px; text-align: center; box-shadow: 0 0 30px rgba(255,0,0,0.5); }
-        .qr-display { background: #fff; padding: 10px; border-radius: 10px; margin: 15px 0; display: inline-block; }
+        body {
+            background-color: #050505;
+            color: #ff3333;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 10px;
+        }
+        .container {
+            max-width: 420px;
+            margin: 20px auto;
+            background: #0f0202;
+            border: 2px solid #ff3333;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 0 25px rgba(255, 0, 0, 0.4);
+        }
+        .logo {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            border: 2px solid #ff3333;
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
+            object-fit: cover;
+            margin-bottom: 10px;
+        }
+        h2 {
+            color: #ff3333;
+            text-shadow: 0 0 8px rgba(255, 0, 0, 0.8);
+            margin: 10px 0;
+            font-size: 22px;
+        }
+        p {
+            color: #ff8080;
+            font-size: 13px;
+            margin-bottom: 15px;
+        }
+        .input-box, .btn {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 10px;
+            border: 1px solid #ff3333;
+            background: #1a0000;
+            color: white;
+            font-size: 14px;
+            box-sizing: border-box;
+            outline: none;
+        }
+        .input-box::placeholder {
+            color: #994444;
+        }
+        .btn {
+            background: #ff3333;
+            color: #ffffff;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+            box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+        }
+        .btn:hover {
+            background: #cc0000;
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.8);
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            background: #1a0000;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            box-shadow: 0 0 8px rgba(0, 255, 0, 0.3);
+        }
+        #pairing-code-display {
+            margin-top: 15px;
+            font-size: 22px;
+            color: #00ff00;
+            font-weight: bold;
+            letter-spacing: 3px;
+            background: #000;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px dashed #00ff00;
+        }
+        .footer {
+            margin-top: 15px;
+            font-size: 11px;
+            color: #888;
+        }
     </style>
 </head>
 <body>
 
-    <div class="top-bar">
-        <span>DIMUWA</span>
-        <span><span class="online-dot"></span>ONLINE</span>
-    </div>
-
     <div class="container">
-        <div class="logo-box">
-            <img src="https://files.catbox.moe/6gq4ub.jpeg" alt="Logo">
-        </div>
-        <h1>DIMUWA MINI</h1>
-        <div class="subtitle">Next Generation WhatsApp Automation.<br>Powerful, fast, and completely secure.</div>
+        <img src="https://files.catbox.moe/6gq4ub.jpeg" alt="Bot Logo" class="logo">
+        <h2>DIMUWA MINI BOT</h2>
+        <p>Next Generation WhatsApp Automation & Management</p>
+        
+        <div class="status-badge">🟢 SYSTEM ONLINE</div>
 
-        <div id="auth-section">
-            <div class="input-group">
-                <label>Username</label>
-                <input type="text" id="username" placeholder="Enter username">
-            </div>
-            <div class="input-group">
-                <label>Password</label>
-                <input type="password" id="password" placeholder="Enter password">
-            </div>
-            <div class="btn-row" style="margin-top: 15px;">
-                <button class="btn" onclick="handleAuth('login')">LOGIN</button>
-                <button class="btn btn-secondary" onclick="handleAuth('register')">REGISTER</button>
-            </div>
+        <div style="margin-top: 10px;">
+            <input type="text" id="username" class="input-box" placeholder="Enter Username (e.g. admin)">
+            <input type="text" id="phone-number" class="input-box" placeholder="WhatsApp Number (e.g. 94740325746)">
+            <button class="btn" onclick="requestPairingCode()">GET PAIRING CODE</button>
+            <div id="pairing-code-display"></div>
         </div>
 
-        <div id="dashboard-section" style="display: none;">
-            <p id="welcome-msg" style="color: #00ff66; margin-bottom: 15px; font-weight: 600; font-size: 14px;">WELCOME, DIMUWA ADMIN</p>
-            
-            <div id="main-actions" class="action-box">
-                <div class="btn-row" style="margin-bottom: 10px;">
-                    <button class="btn" onclick="loadQRCode()">SCAN QR CODE</button>
-                    <button class="btn btn-secondary" onclick="showBotDetails()">BOT DETAILS</button>
-                </div>
-                <button class="btn btn-secondary" style="width: 100%; border-color: #ff3333; color: #ff9999;" onclick="disconnectDevice()">UNLINK BOT</button>
-            </div>
-
-            <button class="btn btn-secondary" style="width: 100%; border-color: #444; color: #aaa; margin-top: 10px;" onclick="logout()">LOGOUT</button>
+        <div class="footer">
+            © 2026 DIMUWA BOT. Created by Dimuth Sathsara
         </div>
     </div>
 
-    <div class="stats-grid">
-        <div class="stat-card">
-            <h3>SERVER</h3>
-            <p>ACTIVE</p>
-        </div>
-        <div class="stat-card">
-            <h3>LATENCY</h3>
-            <p id="latency">24 ms</p>
-        </div>
-        <div class="stat-card">
-            <h3>UPTIME</h3>
-            <p id="uptime">00:00:00</p>
-        </div>
-        <div class="stat-card">
-            <h3>ACTIVE BOTS</h3>
-            <p id="active-bots">0</p>
-        </div>
-    </div>
-
-    <div id="codeModal" class="modal">
-        <div class="modal-content">
-            <h3 style="color: #fff; margin-bottom: 5px;">📷 Scan WhatsApp QR</h3>
-            <p style="font-size: 11px; color: #bbb; margin-bottom: 10px;">Go to Linked Devices -> Link a Device on WhatsApp</p>
-            <div class="qr-display" id="qrContainer">Loading QR...</div>
-            <br>
-            <button class="btn btn-secondary" onclick="closeModal()">CLOSE</button>
-        </div>
-    </div>
-
-    <div style="position: fixed; bottom: 15px; right: 15px; z-index: 50;">
-        <button onclick="toggleMusic()" id="music-btn" style="background: rgba(15, 4, 4, 0.9); border: 1px solid #00ff66; color: #00ff66; padding: 8px 16px; border-radius: 20px; font-size: 11px; font-weight: 600; cursor: pointer; box-shadow: 0 0 10px rgba(0,255,102,0.2);">🎵 MUSIC: ON</button>
-        <audio id="bg-music" src="https://files.catbox.moe/vsl1wg.mp3" autoplay loop></audio>
-    </div>
-
-    <div class="footer">
-        © 2026 DIMUWA BOT. Created by DIMUTH SATHSARA
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
     <script>
-        let currentUser = localStorage.getItem('dimuwa_user') || null;
-
-        window.onload = () => {
-            fetchStats();
-            setInterval(fetchStats, 5000);
-            startUptimeTimer();
-
-            if (currentUser) {
-                document.getElementById('auth-section').style.display = 'none';
-                document.getElementById('dashboard-section').style.display = 'block';
-            }
-        };
-
-        function showBotDetails() {
-            alert("🤖 DIMUWA MINI BOT V3.0 RED\nCreator: Dimuth Sathsara\nStatus: 24/7 Active & Secure\nFeatures: TikTok/FB/YT Download, Anti-Delete, View-Once Unlocker (.vv), Auto-Read & QR Connect!");
-        }
-
-        async function handleAuth(type) {
+        async function requestPairingCode() {
             const username = document.getElementById('username').value.trim();
-            const password = document.getElementById('password').value.trim();
-            if(!username || !password) { alert("Please fill all fields!"); return; }
+            const phone = document.getElementById('phone-number').value.trim();
+            const display = document.getElementById('pairing-code-display');
+
+            if (!username || !phone) {
+                alert("Please enter both Username and WhatsApp number!");
+                return;
+            }
+
+            display.innerText = "Generating Code...";
 
             try {
-                const res = await fetch(`/${type}`, {
+                const response = await fetch('/get-pairing-code', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
+                    body: JSON.stringify({ username: username, phone: phone })
                 });
-                const data = await res.json();
-                if(data.error) { alert(data.error); }
-                else {
-                    currentUser = username;
-                    localStorage.setItem('dimuwa_user', currentUser);
-                    location.reload();
-                }
-            } catch(e) {
-                alert("Authentication error!");
-            }
-        }
 
-        async function loadQRCode() {
-            document.getElementById('codeModal').style.display = 'flex';
-            document.getElementById('qrContainer').innerHTML = "Generating QR Code...";
-            
-            try {
-                const res = await fetch(`/get-qr?user=${encodeURIComponent(currentUser)}`);
-                const data = await res.json();
-                if(data.qr) {
-                    let qr = qrcode(0, 'M');
-                    qr.addData(data.qr);
-                    qr.make();
-                    document.getElementById('qrContainer').innerHTML = qr.createImgTag(5);
+                const data = await response.json();
+                if (response.ok && data.success) {
+                    display.innerText = data.code;
                 } else {
-                    document.getElementById('qrContainer').innerHTML = "<p style='color:red;'>Failed to load QR. Try again!</p>";
+                    display.innerText = "Error: " + (data.error || "Failed");
                 }
-            } catch(e) {
-                document.getElementById('qrContainer').innerHTML = "<p style='color:red;'>Connection error!</p>";
+            } catch (err) {
+                display.innerText = "Connection Error!";
             }
-        }
-
-        async function disconnectDevice() {
-            const res = await fetch('/disconnect', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: currentUser })
-            });
-            const data = await res.json();
-            alert(data.message || data.error);
-        }
-
-        function logout() {
-            localStorage.clear();
-            location.reload();
-        }
-
-        function closeModal() {
-            document.getElementById('codeModal').style.display = 'none';
-        }
-
-        async function fetchStats() {
-            try {
-                const res = await fetch('/stats');
-                const data = await res.json();
-                document.getElementById('active-bots').innerText = data.activeBots;
-            } catch(e) {}
-        }
-
-        let seconds = 0;
-        function startUptimeTimer() {
-            setInterval(() => {
-                seconds++;
-                let hrs = Math.floor(seconds / 3600).toString().padStart(2, '0');
-                let mins = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
-                let secs = (seconds % 60).toString().padStart(2, '0');
-                document.getElementById('uptime').innerText = `${hrs}:${mins}:${secs}`;
-            }, 1000);
-        }
-
-        let musicPlaying = true;
-        function toggleMusic() {
-            const audio = document.getElementById('bg-music');
-            const btn = document.getElementById('music-btn');
-            if(musicPlaying) {
-                audio.pause();
-                btn.innerText = "🎵 MUSIC: OFF";
-                btn.style.borderColor = "#ff3333";
-                btn.style.color = "#ff3333";
-            } else {
-                audio.play();
-                btn.innerText = "🎵 MUSIC: ON";
-                btn.style.borderColor = "#00ff66";
-                btn.style.color = "#00ff66";
-            }
-            musicPlaying = !musicPlaying;
         }
     </script>
+
 </body>
 </html>
