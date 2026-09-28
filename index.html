@@ -4,216 +4,356 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dimuwa Mini Bot Dashboard</title>
+    <!-- Google Fonts for the premium look -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         body {
-            background-color: #0b0b0b;
-            color: #ff3333;
-            font-family: Arial, sans-serif;
-            text-align: center;
+            background-color: #050202;
+            color: #fff;
+            font-family: 'Poppins', sans-serif;
             margin: 0;
-            padding: 10px;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
         }
-        .container {
+        .app-container {
+            width: 100%;
             max-width: 420px;
-            margin: 20px auto;
-            background: #140000;
-            border: 2px solid #ff3333;
+            background-color: #050202;
+            position: relative;
+            padding-bottom: 60px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px 20px;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+        .header-left { color: #ff3333; }
+        .header-right { color: #00ff00; display: flex; align-items: center; gap: 6px; text-shadow: 0 0 5px rgba(0,255,0,0.5);}
+        .dot { width: 8px; height: 8px; background-color: #00ff00; border-radius: 50%; box-shadow: 0 0 8px #00ff00; }
+
+        .main-card {
+            background: linear-gradient(180deg, #110000 0%, #050000 100%);
+            border: 1px solid rgba(255, 0, 0, 0.15);
             border-radius: 20px;
-            padding: 20px;
-            box-shadow: 0 0 25px rgba(255, 0, 0, 0.4);
+            margin: 0 15px;
+            padding: 30px 20px;
+            text-align: center;
+            box-shadow: 0 0 30px rgba(255, 0, 0, 0.05), inset 0 0 20px rgba(255, 0, 0, 0.05);
+        }
+        .logo-container {
+            width: 90px;
+            height: 90px;
+            margin: 0 auto 15px;
+            border-radius: 20px;
+            padding: 2px;
+            background: linear-gradient(45deg, #ff3333, #4a0000);
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
         }
         .logo {
-            width: 85px;
-            height: 85px;
-            border-radius: 50%;
-            border: 2px solid #ff3333;
-            box-shadow: 0 0 12px rgba(255, 0, 0, 0.6);
-            object-fit: cover;
-            margin-bottom: 10px;
-        }
-        h2 {
-            color: #ff3333;
-            text-shadow: 0 0 8px rgba(255, 0, 0, 0.8);
-            margin: 10px 0;
-            font-size: 20px;
-        }
-        p {
-            color: #ff8080;
-            font-size: 12px;
-            margin-bottom: 15px;
-        }
-        .status-badge {
-            display: inline-block;
-            padding: 4px 10px;
-            background: #1a0000;
-            border: 1px solid #00ff00;
-            color: #00ff00;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: bold;
-            margin-bottom: 15px;
-        }
-        .input-box, .btn {
             width: 100%;
-            padding: 10px;
-            margin: 6px 0;
+            height: 100%;
+            border-radius: 18px;
+            object-fit: cover;
+        }
+        h1 {
+            color: #ff3333;
+            font-size: 22px;
+            margin: 10px 0 5px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-shadow: 0 0 10px rgba(255, 0, 0, 0.2);
+        }
+        .subtitle {
+            color: #888;
+            font-size: 10px;
+            line-height: 1.4;
+            margin-bottom: 20px;
+            padding: 0 10px;
+        }
+        .welcome {
+            color: #00ff00;
+            font-size: 11px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            letter-spacing: 0.5px;
+            text-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
+        }
+
+        /* Inputs & Displays */
+        .input-dark {
+            width: 100%;
+            background: rgba(20, 0, 0, 0.5);
+            border: 1px solid rgba(255, 0, 0, 0.3);
+            color: #fff;
+            padding: 12px;
             border-radius: 8px;
-            border: 1px solid #ff3333;
-            background: #1a0000;
-            color: white;
-            font-size: 13px;
+            font-family: 'Poppins', sans-serif;
+            font-size: 12px;
             box-sizing: border-box;
+            margin-bottom: 15px;
+            text-align: center;
             outline: none;
-        }
-        .input-box::placeholder {
-            color: #994444;
-        }
-        .btn {
-            background: #ff3333;
-            color: #ffffff;
-            font-weight: bold;
-            cursor: pointer;
             transition: 0.3s;
         }
-        .btn:hover {
-            background: #cc0000;
-        }
-        .divider {
+        .input-dark:focus { border-color: #ff3333; box-shadow: 0 0 10px rgba(255, 0, 0, 0.2); }
+        
+        #code-display {
+            color: #00ff00;
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: 5px;
             margin: 15px 0;
-            border-top: 1px dashed #ff3333;
-            position: relative;
-        }
-        .divider span {
-            background: #140000;
-            padding: 0 10px;
-            position: relative;
-            top: -10px;
-            color: #ff8080;
-            font-size: 11px;
+            text-shadow: 0 0 10px rgba(0, 255, 0, 0.4);
+            display: none;
+            background: #000;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px dashed #00ff00;
         }
         #qr-container {
-            margin-top: 10px;
+            margin: 15px auto;
             background: #fff;
             padding: 10px;
             border-radius: 8px;
-            display: inline-block;
+            display: none;
+            width: fit-content;
         }
-        #pairing-code-display {
-            margin-top: 10px;
-            font-size: 18px;
-            color: #00ff00;
-            font-weight: bold;
-            letter-spacing: 2px;
-            background: #000;
-            padding: 8px;
-            border-radius: 6px;
-            border: 1px dashed #00ff00;
+
+        /* Buttons */
+        .btn-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 10px;
         }
-        .footer {
-            margin-top: 15px;
+        .btn {
+            padding: 12px;
+            border-radius: 8px;
+            font-family: 'Poppins', sans-serif;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .btn-primary {
+            background: #ff1a1a;
+            color: #fff;
+            border: none;
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.3);
+        }
+        .btn-primary:hover { background: #cc0000; }
+        .btn-secondary {
+            background: transparent;
+            color: #ff8888;
+            border: 1px solid rgba(255, 0, 0, 0.3);
+        }
+        .btn-secondary:hover {
+            background: rgba(255, 0, 0, 0.05);
+            color: #ff3333;
+            border-color: #ff3333;
+        }
+        .btn-full { width: 100%; margin-bottom: 10px; }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin: 20px 15px;
+        }
+        .stat-box {
+            background: #0a0202;
+            border: 1px solid rgba(255, 0, 0, 0.15);
+            border-radius: 12px;
+            padding: 15px;
+            text-align: left;
+            transition: 0.3s;
+        }
+        .stat-box:hover { border-color: rgba(255, 0, 0, 0.4); box-shadow: 0 0 10px rgba(255, 0, 0, 0.1); }
+        .stat-title {
+            color: #666;
             font-size: 10px;
-            color: #888;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+        .stat-value {
+            color: #ff3333;
+            font-size: 15px;
+            font-weight: 700;
+        }
+
+        .footer {
+            text-align: center;
+            color: #444;
+            font-size: 10px;
+            margin-top: 30px;
+            letter-spacing: 0.5px;
+        }
+
+        .music-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: transparent;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
         }
     </style>
-    <!-- qrcode.js CDN for QR generation -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 
-    <div class="container">
-        <img src="https://files.catbox.moe/6gq4ub.jpeg" alt="Bot Logo" class="logo">
-        <h2>DIMUWA MINI BOT</h2>
-        <p>Next Generation WhatsApp Automation & Management</p>
-        
-        <div class="status-badge">🟢 SYSTEM ONLINE</div>
-
-        <!-- Pairing Code Section -->
-        <div>
-            <input type="text" id="username" class="input-box" placeholder="Enter Username (e.g. admin)">
-            <input type="text" id="phone-number" class="input-box" placeholder="WhatsApp Number (e.g. 94740325746)">
-            <button class="btn" onclick="requestPairingCode()">GET PAIRING CODE</button>
-            <div id="pairing-code-display"></div>
+    <div class="app-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">DIMUWA</div>
+            <div class="header-right"><div class="dot"></div> ONLINE</div>
         </div>
 
-        <div class="divider"><span>OR</span></div>
+        <!-- Main Card -->
+        <div class="main-card">
+            <div class="logo-container">
+                <img src="https://files.catbox.moe/6gq4ub.jpeg" alt="Dimuwa Bot" class="logo">
+            </div>
+            
+            <h1>DIMUWA MINI</h1>
+            <div class="subtitle">Next Generation WhatsApp Automation.<br>Powerful, fast, and completely secure.</div>
+            
+            <div class="welcome">WELCOME, DIMUWA ADMIN</div>
 
-        <!-- QR Code Section -->
-        <div>
-            <input type="text" id="qr-username" class="input-box" placeholder="Enter Username for QR">
-            <button class="btn" onclick="loadQRCode()">GENERATE QR CODE</button>
-            <div id="qr-container" style="display:none;">
-                <div id="qrcode"></div>
+            <!-- Pairing Input -->
+            <input type="text" id="phone-number" class="input-dark" placeholder="WhatsApp Number (e.g. 94740325746)">
+            
+            <!-- Code Displays -->
+            <div id="code-display"></div>
+            <div id="qr-container"><div id="qrcode"></div></div>
+
+            <!-- Buttons -->
+            <div class="btn-grid">
+                <button class="btn btn-primary" onclick="requestPairingCode()">PAIR CODE</button>
+                <button class="btn btn-primary" onclick="loadQRCode()" style="background: transparent; border: 1px solid #ff1a1a; color: #ff1a1a;">SCAN QR</button>
+            </div>
+            
+            <div class="btn-grid">
+                <button class="btn btn-secondary">BOT DETAILS</button>
+                <button class="btn btn-secondary">UNLINK BOT</button>
+            </div>
+            
+            <button class="btn btn-secondary btn-full">LOGOUT</button>
+        </div>
+
+        <!-- Stats Section -->
+        <div class="stats-grid">
+            <div class="stat-box">
+                <div class="stat-title">SERVER</div>
+                <div class="stat-value">ACTIVE</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-title">LATENCY</div>
+                <div class="stat-value">24 ms</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-title">UPTIME</div>
+                <div class="stat-value">00:00:06</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-title">ACTIVE BOTS</div>
+                <div class="stat-value">1</div>
             </div>
         </div>
 
         <div class="footer">
-            © 2026 DIMUWA BOT. Created by Dimuth Sathsara
+            © 2026 DIMUWA BOT. Created by DIMUTH SATHSARA
+        </div>
+
+        <!-- Music Toggle -->
+        <div class="music-btn">
+            🎵 MUSIC: ON
         </div>
     </div>
 
     <script>
-        async function requestPairingCode() {
-            const username = document.getElementById('username').value.trim();
-            const phone = document.getElementById('phone-number').value.trim();
-            const display = document.getElementById('pairing-code-display');
+        const adminUsername = "admin"; // ඩෑෂ්බෝඩ් එකේ ඇඩ්මින් විදිහට සෙට් කරලා තියෙන නම
 
-            if (!username || !phone) {
-                alert("Please enter both Username and WhatsApp number!");
+        async function requestPairingCode() {
+            const phone = document.getElementById('phone-number').value.trim();
+            const display = document.getElementById('code-display');
+            const qrContainer = document.getElementById('qr-container');
+
+            if (!phone) {
+                alert("Please enter your WhatsApp number!");
                 return;
             }
 
-            display.innerText = "Generating Code...";
+            qrContainer.style.display = "none"; // Hide QR if open
+            display.style.display = "block";
+            display.innerText = "WAIT...";
 
             try {
                 const response = await fetch('/get-pairing-code', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: username, phone: phone })
+                    body: JSON.stringify({ username: adminUsername, phone: phone })
                 });
 
                 const data = await response.json();
                 if (response.ok && data.success) {
                     display.innerText = data.code;
                 } else {
-                    display.innerText = "Error: " + (data.error || "Failed");
+                    display.innerText = "ERROR!";
                 }
             } catch (err) {
-                display.innerText = "Connection Error!";
+                display.innerText = "FAILED!";
             }
         }
 
         async function loadQRCode() {
-            const username = document.getElementById('qr-username').value.trim();
-            if (!username) {
-                alert("Please enter username for QR!");
-                return;
-            }
-
+            const display = document.getElementById('code-display');
             const qrContainer = document.getElementById('qr-container');
             const qrcodeDiv = document.getElementById('qrcode');
+            
+            display.style.display = "none"; // Hide pairing code if open
             qrcodeDiv.innerHTML = "";
             qrContainer.style.display = "block";
             qrcodeDiv.innerText = "Loading QR...";
 
             try {
-                const res = await fetch(`/get-qr?user=${encodeURIComponent(username)}`);
+                const res = await fetch(`/get-qr?user=${encodeURIComponent(adminUsername)}`);
                 const data = await res.json();
                 
                 if (data.qr) {
                     qrcodeDiv.innerHTML = "";
                     new QRCode(qrcodeDiv, {
                         text: data.qr,
-                        width: 180,
-                        height: 180
+                        width: 160,
+                        height: 160
                     });
                 } else {
-                    qrcodeDiv.innerText = "Failed to load QR!";
+                    qrcodeDiv.innerText = "Failed!";
                 }
             } catch (err) {
-                qrcodeDiv.innerText = "Error fetching QR!";
+                qrcodeDiv.innerText = "Error!";
             }
         }
     </script>
-
 </body>
 </html>
