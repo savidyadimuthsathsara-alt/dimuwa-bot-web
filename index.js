@@ -50,6 +50,64 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+app.post('/register', (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ error: "Please fill all fields!" });
+
+    db.run(`INSERT INTO users (username, password, phone) VALUES (?, ?, ?)`, [username, password, ""], function(err) {
+        if (err) return res.status(400).json({ error: "Username already exists!" });
+        res.json({ success: true, message: "Account created successfully!" });
+    });
+});
+
+app.post('/login', (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ error: "Please fill all fields!" });
+
+    db.get(`SELECT * FROM users WHERE username = ? AND password = ?`, [username, password], (err, row) => {
+        if (err || !row) return res.status(400).json({ error: "Invalid username or password!" });
+        res.json({ success: true, username: row.username });
+    });
+});
+
+app.get('/stats', (req, res) => {
+    let count = 0;
+    if (fs.existsSync('./')) {
+        fs.readdirSync('./').forEach(file => {
+            if (file.startsWith('session_')) count++;
+        });
+    }
+    res.json({ activeBots: count });
+});
+
+// QR Code Endpoint
+app.get('/get-qr', (req, res) => {
+    const username = req.query.user;
+    if (!username) return res.status(400).json({ error: "User required" });
+
+    const sessionPath = `./session_${username}`;
+    if (fs.existsSync(sessionPath) && !activeQRStore.has(username) && !pairingCodeStore.has(username)) {
+        try { fs.rmSync(sessionPath, { recursive: true, force: true }); } catch(e){}
+    }
+
+    if (!activeQRStore.has(username) && !pairingCodeStore.has(username)) {
+        startBotForUser(username, false, null);
+    }
+
+    const checkInterval = setInterval(() => {
+        if (activeQRStore.has(username)) {
+            const qr = activeQRStore.get(username);
+            clearInterval(checkInterval);
+            res.json({ qr: qr });
+        }
+    }, 1000);
+
+    setTimeout(() => {
+        clearInterval(checkInterval);
+        if (!res.headersSent) res.status(408).json({ error: "QR timeout" });
+    }, 20000);
+});
+
 // Pairing Code Endpoint
 app.post('/get-pairing-code', async (req, res) => {
     const { username, phone } = req.body;
@@ -111,13 +169,17 @@ async function startBotForUser(username, usePairingCode, phoneNumber) {
         logger: pino({ level: 'silent' }),
         auth: state,
         printQRInTerminal: false,
-        browser: Browsers.macOS('Chrome'),
+        // Tricks WhatsApp into thinking this request comes from an Ubuntu desktop
+        browser: ['Ubuntu', 'Chrome', '20.0.04'],
         connectTimeoutMs: 60000, 
         keepAliveIntervalMs: 10000,
-        markOnlineOnConnect: true
+        markOnlineOnConnect: true,
+        syncFullHistory: false, // Prevents timeouts by ignoring full chat history sync
+        generateHighQualityLinkPreview: false
     });
 
     if (usePairingCode && phoneNumber && !sock.authState.creds.registered) {
+        // 5-second delay to ensure the WebSocket connection is stable before requesting the code
         setTimeout(async () => {
             try {
                 let cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
@@ -126,7 +188,7 @@ async function startBotForUser(username, usePairingCode, phoneNumber) {
             } catch (err) {
                 console.error("Pairing code error:", err);
             }
-        }, 4000);
+        }, 5000);
     }
 
     sock.ev.on('creds.update', saveCreds);
@@ -300,7 +362,7 @@ async function startBotForUser(username, usePairingCode, phoneNumber) {
                 if (cleanBody === '11.1') { botSettings.vvTarget = "SAME"; await sock.sendMessage(from, { text: "✅ View-Once Target set to SAME CHAT!" }, { quoted: m }); return; }
                 if (cleanBody === '11.2') { botSettings.vvTarget = "PRIVATE"; await sock.sendMessage(from, { text: "✅ View-Once Target set to MY INBOX!" }, { quoted: m }); return; }
                 if (cleanBody === '12.1') { botSettings.saveTarget = "SAME"; await sock.sendMessage(from, { text: "✅ Save Target set to SAME CHAT!" }, { quoted: m }); return; }
-                if (cleanBody === '12.2') { botSettings.saveTarget = "PRIVATE"; await sock.sendMessage(from, { text: "✅ Save Target set to MY INBOX!" }, { quoted: m }); return; }
+                if (cleanBody === '12.2') { botSettings.saveTarget = "PRIVATE"; await sendMessage(from, { text: "✅ Save Target set to MY INBOX!" }, { quoted: m }); return; }
                 if (cleanBody === '13.1') { botSettings.botPower = "ON"; await sock.sendMessage(from, { text: "✅ Bot Power turned ON!" }, { quoted: m }); return; }
                 if (cleanBody === '13.2') { botSettings.botPower = "OFF"; await sock.sendMessage(from, { text: "❌ Bot Power turned OFF!" }, { quoted: m }); return; }
             }
