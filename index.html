@@ -6,9 +6,9 @@
     <title>Dimuwa Mini Bot Dashboard</title>
     <style>
         body {
-            background-color: #050505;
+            background-color: #0b0b0b;
             color: #ff3333;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: Arial, sans-serif;
             text-align: center;
             margin: 0;
             padding: 10px;
@@ -16,18 +16,18 @@
         .container {
             max-width: 420px;
             margin: 20px auto;
-            background: #0f0202;
+            background: #140000;
             border: 2px solid #ff3333;
             border-radius: 20px;
             padding: 20px;
             box-shadow: 0 0 25px rgba(255, 0, 0, 0.4);
         }
         .logo {
-            width: 90px;
-            height: 90px;
+            width: 85px;
+            height: 85px;
             border-radius: 50%;
             border: 2px solid #ff3333;
-            box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
+            box-shadow: 0 0 12px rgba(255, 0, 0, 0.6);
             object-fit: cover;
             margin-bottom: 10px;
         }
@@ -35,22 +35,33 @@
             color: #ff3333;
             text-shadow: 0 0 8px rgba(255, 0, 0, 0.8);
             margin: 10px 0;
-            font-size: 22px;
+            font-size: 20px;
         }
         p {
             color: #ff8080;
-            font-size: 13px;
+            font-size: 12px;
+            margin-bottom: 15px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            background: #1a0000;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
             margin-bottom: 15px;
         }
         .input-box, .btn {
             width: 100%;
-            padding: 12px;
-            margin: 8px 0;
-            border-radius: 10px;
+            padding: 10px;
+            margin: 6px 0;
+            border-radius: 8px;
             border: 1px solid #ff3333;
             background: #1a0000;
             color: white;
-            font-size: 14px;
+            font-size: 13px;
             box-sizing: border-box;
             outline: none;
         }
@@ -63,41 +74,49 @@
             font-weight: bold;
             cursor: pointer;
             transition: 0.3s;
-            box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
         }
         .btn:hover {
             background: #cc0000;
-            box-shadow: 0 0 15px rgba(255, 0, 0, 0.8);
         }
-        .status-badge {
-            display: inline-block;
-            padding: 5px 12px;
-            background: #1a0000;
-            border: 1px solid #00ff00;
-            color: #00ff00;
-            border-radius: 15px;
-            font-size: 12px;
-            font-weight: bold;
-            margin-bottom: 15px;
-            box-shadow: 0 0 8px rgba(0, 255, 0, 0.3);
+        .divider {
+            margin: 15px 0;
+            border-top: 1px dashed #ff3333;
+            position: relative;
         }
-        #pairing-code-display {
-            margin-top: 15px;
-            font-size: 22px;
-            color: #00ff00;
-            font-weight: bold;
-            letter-spacing: 3px;
-            background: #000;
+        .divider span {
+            background: #140000;
+            padding: 0 10px;
+            position: relative;
+            top: -10px;
+            color: #ff8080;
+            font-size: 11px;
+        }
+        #qr-container {
+            margin-top: 10px;
+            background: #fff;
             padding: 10px;
             border-radius: 8px;
+            display: inline-block;
+        }
+        #pairing-code-display {
+            margin-top: 10px;
+            font-size: 18px;
+            color: #00ff00;
+            font-weight: bold;
+            letter-spacing: 2px;
+            background: #000;
+            padding: 8px;
+            border-radius: 6px;
             border: 1px dashed #00ff00;
         }
         .footer {
             margin-top: 15px;
-            font-size: 11px;
+            font-size: 10px;
             color: #888;
         }
     </style>
+    <!-- qrcode.js CDN for QR generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 
@@ -108,11 +127,23 @@
         
         <div class="status-badge">🟢 SYSTEM ONLINE</div>
 
-        <div style="margin-top: 10px;">
+        <!-- Pairing Code Section -->
+        <div>
             <input type="text" id="username" class="input-box" placeholder="Enter Username (e.g. admin)">
             <input type="text" id="phone-number" class="input-box" placeholder="WhatsApp Number (e.g. 94740325746)">
             <button class="btn" onclick="requestPairingCode()">GET PAIRING CODE</button>
             <div id="pairing-code-display"></div>
+        </div>
+
+        <div class="divider"><span>OR</span></div>
+
+        <!-- QR Code Section -->
+        <div>
+            <input type="text" id="qr-username" class="input-box" placeholder="Enter Username for QR">
+            <button class="btn" onclick="loadQRCode()">GENERATE QR CODE</button>
+            <div id="qr-container" style="display:none;">
+                <div id="qrcode"></div>
+            </div>
         </div>
 
         <div class="footer">
@@ -148,6 +179,38 @@
                 }
             } catch (err) {
                 display.innerText = "Connection Error!";
+            }
+        }
+
+        async function loadQRCode() {
+            const username = document.getElementById('qr-username').value.trim();
+            if (!username) {
+                alert("Please enter username for QR!");
+                return;
+            }
+
+            const qrContainer = document.getElementById('qr-container');
+            const qrcodeDiv = document.getElementById('qrcode');
+            qrcodeDiv.innerHTML = "";
+            qrContainer.style.display = "block";
+            qrcodeDiv.innerText = "Loading QR...";
+
+            try {
+                const res = await fetch(`/get-qr?user=${encodeURIComponent(username)}`);
+                const data = await res.json();
+                
+                if (data.qr) {
+                    qrcodeDiv.innerHTML = "";
+                    new QRCode(qrcodeDiv, {
+                        text: data.qr,
+                        width: 180,
+                        height: 180
+                    });
+                } else {
+                    qrcodeDiv.innerText = "Failed to load QR!";
+                }
+            } catch (err) {
+                qrcodeDiv.innerText = "Error fetching QR!";
             }
         }
     </script>
