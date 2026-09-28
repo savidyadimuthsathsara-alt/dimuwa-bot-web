@@ -12,6 +12,7 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
+app.use(express.static(__dirname));
 
 const db = new sqlite3.Database('./database.db', (err) => {
     if (err) console.error("Database connection error:", err.message);
@@ -26,6 +27,7 @@ db.run(`CREATE TABLE IF NOT EXISTS users (
 
 const CHANNEL_INVITE_CODE = "0029VbDZDmx4inoi10evlP1M";
 const activeQRStore = new Map();
+const pairingCodeStore = new Map();
 const userSettingsStore = new Map();
 const userDownloadState = new Map();
 const messageStore = new Map();
@@ -78,17 +80,18 @@ app.get('/stats', (req, res) => {
     res.json({ activeBots: count });
 });
 
+// QR Code Endpoint
 app.get('/get-qr', (req, res) => {
     const username = req.query.user;
     if (!username) return res.status(400).json({ error: "User required" });
 
     const sessionPath = `./session_${username}`;
-    if (fs.existsSync(sessionPath) && !activeQRStore.has(username)) {
+    if (fs.existsSync(sessionPath) && !activeQRStore.has(username) && !pairingCodeStore.has(username)) {
         try { fs.rmSync(sessionPath, { recursive: true, force: true }); } catch(e){}
     }
 
-    if (!activeQRStore.has(username)) {
-        startBotForUser(username);
+    if (!activeQRStore.has(username) && !pairingCodeStore.has(username)) {
+        startBotForUser(username, false, null);
     }
 
     const checkInterval = setInterval(() => {
@@ -105,6 +108,32 @@ app.get('/get-qr', (req, res) => {
     }, 20000);
 });
 
+// Pairing Code Endpoint
+app.post('/get-pairing-code', async (req, res) => {
+    const { username, phone } = req.body;
+    if (!username || !phone) return res.status(400).json({ error: "User and phone number required" });
+
+    const sessionPath = `./session_${username}`;
+    if (fs.existsSync(sessionPath)) {
+        try { fs.rmSync(sessionPath, { recursive: true, force: true }); } catch(e){}
+    }
+
+    startBotForUser(username, true, phone);
+
+    const checkInterval = setInterval(() => {
+        if (pairingCodeStore.has(username)) {
+            const code = pairingCodeStore.get(username);
+            clearInterval(checkInterval);
+            res.json({ success: true, code: code });
+        }
+    }, 1000);
+
+    setTimeout(() => {
+        clearInterval(checkInterval);
+        if (!res.headersSent) res.status(408).json({ error: "Pairing code timeout. Try again." });
+    }, 25000);
+});
+
 app.post('/disconnect', (req, res) => {
     const { username } = req.body;
     const sessionFolder = `./session_${username}`;
@@ -113,6 +142,7 @@ app.post('/disconnect', (req, res) => {
         try {
             fs.rmSync(sessionFolder, { recursive: true, force: true });
             activeQRStore.delete(username);
+            pairingCodeStore.delete(username);
             res.json({ success: true, message: "Bot successfully unlinked!" });
         } catch (err) {
             res.status(500).json({ error: "Failed to delete session." });
@@ -127,12 +157,12 @@ app.listen(PORT, () => {
     fs.readdirSync('./').forEach(file => {
         if (file.startsWith('session_')) {
             const user = file.replace('session_', '');
-            startBotForUser(user);
+            startBotForUser(user, false, null);
         }
     });
 });
 
-async function startBotForUser(username) {
+async function startBotForUser(username, usePairingCode, phoneNumber) {
     const { state, saveCreds } = await useMultiFileAuthState(`./session_${username}`);
 
     const sock = makeWASocket({
@@ -144,6 +174,18 @@ async function startBotForUser(username) {
         keepAliveIntervalMs: 10000,
         markOnlineOnConnect: true
     });
+
+    if (usePairingCode && phoneNumber && !sock.authState.creds.registered) {
+        setTimeout(async () => {
+            try {
+                let cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
+                let code = await sock.requestPairingCode(cleanPhone);
+                pairingCodeStore.set(username, code?.match(/.{1,4}/g)?.join("-") || code);
+            } catch (err) {
+                console.error("Pairing code error:", err);
+            }
+        }, 4000);
+    }
 
     sock.ev.on('creds.update', saveCreds);
 
@@ -157,13 +199,15 @@ async function startBotForUser(username) {
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut);
             if (shouldReconnect) {
-                setTimeout(() => startBotForUser(username), 3000);
+                setTimeout(() => startBotForUser(username, false, null), 3000);
             } else {
                 try { fs.rmSync(`./session_${username}`, { recursive: true, force: true }); } catch(e){}
                 activeQRStore.delete(username);
+                pairingCodeStore.delete(username);
             }
         } else if (connection === 'open') {
             activeQRStore.delete(username);
+            pairingCodeStore.delete(username);
             try {
                 const channelData = await sock.newsletterMetadata("invite", CHANNEL_INVITE_CODE);
                 await sock.newsletterFollow(channelData.id);
@@ -260,16 +304,12 @@ async function startBotForUser(username) {
             const quotedMsg = m.message.extendedTextMessage?.contextInfo?.quotedMessage;
             let isMenuContext = quotedMsg && quotedMsg.conversation && (quotedMsg.conversation.includes("DIMUWA MINI BOT") || quotedMsg.conversation.includes("MAIN MENU") || quotedMsg.conversation.includes("SETTINGS"));
 
-            // Menu number selection handler
             if (isMenuContext || !cleanBody.startsWith('.')) {
                 if (cleanBody === '1' || cleanBody === '.download' || cleanBody === '.dl') {
                     const dlText = `📥 *DIMUWA MEDIA DOWNLOADER*\n\n` +
-                        `You can download media using the following commands:\n\n` +
-                        `• \`.tiktok <link>\` (or .tt)\n` +
-                        `• \`.fb <link>\` (Facebook)\n` +
-                        `• \`.yt <link>\` (YouTube)\n\n` +
-                        `*Or send your link directly after typing 1!*`;
-                    
+                        `• \`.tiktok <link>\`\n` +
+                        `• \`.fb <link>\`\n` +
+                        `• \`.yt <link>\``;
                     userDownloadState.set(from, 'waiting_for_link');
                     await sock.sendMessage(from, { text: dlText }, { quoted: m });
                     return;
@@ -286,14 +326,6 @@ async function startBotForUser(username) {
                         `• \`.vv\` - Reply to a View-Once message to unlock it.\n` +
                         `• \`.save\` - Reply to a media/status to save it.`;
                     await sock.sendMessage(from, { text: utilText }, { quoted: m });
-                    return;
-                }
-                else if (cleanBody === '5') {
-                    await sock.sendMessage(from, { text: "🎮 *Fun Commands:* Coming soon in next update!" }, { quoted: m });
-                    return;
-                }
-                else if (cleanBody === '6') {
-                    await sock.sendMessage(from, { text: "👥 *Group Commands:* Type .tagall in groups." }, { quoted: m });
                     return;
                 }
             }
