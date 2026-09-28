@@ -50,64 +50,6 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-app.post('/register', (req, res) => {
-    const { username, password } = req.body;
-    if (!username || !password) return res.status(400).json({ error: "Please fill all fields!" });
-
-    db.run(`INSERT INTO users (username, password, phone) VALUES (?, ?, ?)`, [username, password, ""], function(err) {
-        if (err) return res.status(400).json({ error: "Username already exists!" });
-        res.json({ success: true, message: "Account created successfully!" });
-    });
-});
-
-app.post('/login', (req, res) => {
-    const { username, password } = req.body;
-    if (!username || !password) return res.status(400).json({ error: "Please fill all fields!" });
-
-    db.get(`SELECT * FROM users WHERE username = ? AND password = ?`, [username, password], (err, row) => {
-        if (err || !row) return res.status(400).json({ error: "Invalid username or password!" });
-        res.json({ success: true, username: row.username });
-    });
-});
-
-app.get('/stats', (req, res) => {
-    let count = 0;
-    if (fs.existsSync('./')) {
-        fs.readdirSync('./').forEach(file => {
-            if (file.startsWith('session_')) count++;
-        });
-    }
-    res.json({ activeBots: count });
-});
-
-// QR Code Endpoint
-app.get('/get-qr', (req, res) => {
-    const username = req.query.user;
-    if (!username) return res.status(400).json({ error: "User required" });
-
-    const sessionPath = `./session_${username}`;
-    if (fs.existsSync(sessionPath) && !activeQRStore.has(username) && !pairingCodeStore.has(username)) {
-        try { fs.rmSync(sessionPath, { recursive: true, force: true }); } catch(e){}
-    }
-
-    if (!activeQRStore.has(username) && !pairingCodeStore.has(username)) {
-        startBotForUser(username, false, null);
-    }
-
-    const checkInterval = setInterval(() => {
-        if (activeQRStore.has(username)) {
-            const qr = activeQRStore.get(username);
-            clearInterval(checkInterval);
-            res.json({ qr: qr });
-        }
-    }, 1000);
-
-    setTimeout(() => {
-        clearInterval(checkInterval);
-        if (!res.headersSent) res.status(408).json({ error: "QR timeout" });
-    }, 20000);
-});
-
 // Pairing Code Endpoint
 app.post('/get-pairing-code', async (req, res) => {
     const { username, phone } = req.body;
