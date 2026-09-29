@@ -1,7 +1,7 @@
 {
   "name": "dimuwa-mini-bot",
   "version": "5.0.0",
-  "description": "DIMUWA MINI BOT - Railway Ready WhatsApp Bot",
+  "description": "DIMUWA WhatsApp Mini Bot - Railway Ready",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
