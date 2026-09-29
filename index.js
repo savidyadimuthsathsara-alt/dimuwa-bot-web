@@ -2,10 +2,10 @@
 
 /*
 DIMUWA MINI BOT VERSION 5.0.0 (WITH FULL MENU & COMMANDS)
-========================================================
+
 Features:
 WhatsApp Pairing Code, WhatsApp QR, Persistent sessions,
-.menu (With Image, Audio & Numbers 1-6), .ping, .tagall, 
+.menu (With Image, Audio & Numbers 1-6), .ping, .tagall,
 Fun commands (.dice, .random, .love), .alive, .status, .settings
 Settings code system, .vv, .save
 TikTok downloader, YouTube downloader, Facebook downloader
@@ -96,8 +96,9 @@ for (const dir of [DATA_DIR, SESSION_DIR, MEDIA_DIR, TOOLS_DIR]) {
 DEFAULT SETTINGS
 ===================================================== */
 
+// FIX 1: alwaysOnline default to "OFF"
 const DEFAULT_SETTINGS = {
-  alwaysOnline: "ON",
+  alwaysOnline: "OFF", 
   autoRead: "OFF",
   botMode: "INBOX",
   statusRead: "ON",
@@ -240,9 +241,10 @@ function incrementStat(username, field, amount = 1) {
 MESSAGE CACHE
 ===================================================== */
 
+// FIX 9 (Anti-Delete): Updated cacheKey to use only remoteJid and id
 function cacheKey(key) {
   if (!key) return null;
-  return [key.remoteJid || "", key.id || "", key.participant || ""].join(":");
+  return [key.remoteJid || "", key.id || ""].join(":");
 }
 
 function cacheMessage(msg) {
@@ -380,7 +382,9 @@ SETTINGS CODE PROCESSOR
 async function processSettingsCode(sock, username, msg, code) {
   const owner = getOwnerJid(sock);
   const sender = msg.key?.participant || msg.key?.remoteJid;
-  const isOwner = !!owner && (msg.key?.fromMe || sender === owner || jidNumber(sender) === jidNumber(owner));
+  
+  // FIX 2: Correct Owner check for settings
+  const isOwner = msg.key?.fromMe || jidNumber(sender) === jidNumber(owner);
 
   if (!isOwner) {
     await sock.sendMessage(msg.key.remoteJid, { text: "❌ Only bot owner can change settings." });
@@ -561,7 +565,7 @@ EXTRA COMMANDS (PING, FUN, TAGALL)
 async function handlePing(sock, jid, msg) {
   const start = Date.now();
   try {
-    await sock.sendMessage(jid, { text: "🏓 *Pinging...*" }, { quoted: msg });
+    await sock.sendMessage(jid, { text: "🏓 Pinging..." }, { quoted: msg });
     const ms = Date.now() - start;
     await sock.sendMessage(jid, { text: `🏓 *PONG!*\n\n⚡ Response: ${ms} ms\n🟢 Status: Online\n🤖 DIMUWA MINI BOT\n👑 Creator: ${CREATOR_NAME}` });
   } catch (error) {
@@ -799,7 +803,19 @@ function isSupportedDownloaderUrl(url) {
   try {
     const parsed = new URL(url);
     const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
-    return (host.includes("tiktok.com") || host.includes("vm.tiktok.com") || host.includes("youtube.com") || host === "youtu.be" || host.includes("facebook.com") || host === "fb.watch");
+    
+    // FIX 6 & 7: Added Facebook & YouTube Shorts domains
+    return (
+      host.includes("tiktok.com") || 
+      host.includes("vm.tiktok.com") || 
+      host.includes("youtube.com") || 
+      host.includes("youtu.be") || 
+      host.includes("youtube-nocookie.com") ||
+      host.includes("facebook.com") || 
+      host.includes("fb.watch") ||
+      host.includes("fb.com") ||
+      host.includes("m.facebook.com")
+    );
   } catch {
     return false;
   }
@@ -814,9 +830,14 @@ async function downloadSocialMedia(username, url) {
   const jobId = crypto.randomBytes(8).toString("hex");
   const outputTemplate = path.join(MEDIA_DIR, `${jobId}.%(ext)s`);
 
+  // FIX 5: Use better format flag and merge to MP4 for FB/YT downloads
   const args = [
     "--no-playlist", "--no-warnings", "--no-progress", "--restrict-filenames", "--geo-bypass", "--max-filesize", "100M",
-    "-f", "best[ext=mp4]/best", "-o", outputTemplate, "--print", "after_move:filepath", url
+    "-f", "bv*+ba/b/best", 
+    "--merge-output-format", "mp4",
+    "-o", outputTemplate, 
+    "--print", "after_move:filepath", 
+    url
   ];
 
   logger.info({ url }, "Downloading media");
@@ -918,25 +939,28 @@ async function handleDeletedMessages(username, sock, deletedKeys) {
       const target = settings.antiDelTarget === "PRIVATE" ? getOwnerJid(sock) : key.remoteJid;
       if (!target) continue;
 
-      const text = getMessageText(cached);
-      const media = getMediaInfo(cached.message);
-
-      if (media) {
-        try {
-          const downloaded = await downloadWhatsAppMedia(sock, cached);
-          await sendWhatsAppMedia(sock, target, downloaded);
-        } catch {
-          await sock.sendMessage(target, { text: `🗑️ DELETED MEDIA\n\nType: ${media.mediaType}` });
-        }
-      } else if (text) {
-        await sock.sendMessage(target, { text: `🗑️ DELETED MESSAGE\n\n${text}` });
-      } else {
-        try { await sock.sendMessage(target, { forward: cached }); } 
-        catch { await sock.sendMessage(target, { text: "🗑️ A message was deleted." }); }
-      }
-    } catch (error) {
-      logger.error({ error: error.message }, "Anti-delete error");
-    }
+      const text = getMessageText(cached); 
+      const media = getMediaInfo(cached.message); 
+      
+      if (media) { 
+        try { 
+          const downloaded = await downloadWhatsAppMedia(sock, cached); 
+          await sendWhatsAppMedia(sock, target, downloaded); 
+        } catch { 
+          await sock.sendMessage(target, { text: `🗑️ DELETED MEDIA\n\nType: ${media.mediaType}` }); 
+        } 
+      } else if (text) { 
+        await sock.sendMessage(target, { text: `🗑️ DELETED MESSAGE\n\n${text}` }); 
+      } else { 
+        try { 
+          await sock.sendMessage(target, { forward: cached }); 
+        } catch { 
+          await sock.sendMessage(target, { text: "🗑️ A message was deleted." }); 
+        } 
+      } 
+    } catch (error) { 
+      logger.error({ error: error.message }, "Anti-delete error"); 
+    } 
   }
 }
 
@@ -950,7 +974,15 @@ async function handleStatus(username, sock, msg) {
   const participant = msg.key?.participant || msg.participant;
   if (!participant) return;
 
-  if (settings.statusRead === "ON") await sock.readMessages([msg.key]).catch(() => {});
+  // FIX 4: Corrected read messages structure for status
+  if (settings.statusRead === "ON") {
+    await sock.readMessages([{
+      remoteJid: "status@broadcast",
+      id: msg.key.id,
+      participant
+    }]).catch(() => {});
+  }
+  
   if (settings.statusReact === "OFF") return;
 
   let emoji = "💚";
@@ -958,7 +990,8 @@ async function handleStatus(username, sock, msg) {
     emoji = statusReactList[Math.floor(Math.random() * statusReactList.length)];
   }
 
-  await sock.sendMessage("status@broadcast", { react: { text: emoji, key: msg.key } }, { statusJidList: [participant] })
+  // FIX 3: Removed statusJidList to fix react bug on some Baileys versions
+  await sock.sendMessage("status@broadcast", { react: { text: emoji, key: msg.key } })
     .catch(error => logger.error({ error: error.message }, "Status reaction error"));
 }
 
@@ -992,7 +1025,7 @@ async function sendDimuwaWelcome(sock, username) {
     const ownerJid = jidFromPhone(jidNumber(sock.user?.id));
     if (!ownerJid) return;
 
-    const welcomeText = `👋 *WELCOME TO DIMUWA MINI BOT* 🤖 👑
+    const welcomeText = `👋 *WELCOME TO DIMUWA MINI BOT* 🤖 👑 
 
 🎉 Your bot has been successfully connected!
 
@@ -1003,7 +1036,7 @@ async function sendDimuwaWelcome(sock, username) {
 │ ⚙️ Prefix: [ . ]
 └────────────────────┘
 
-📢 *DIMUWA OFFICIAL CHANNEL*
+📢 DIMUWA OFFICIAL CHANNEL
 
 Follow our WhatsApp Channel for:
 • 🆕 Bot Updates
@@ -1014,12 +1047,12 @@ Follow our WhatsApp Channel for:
 
 🔗 ${DIMUWA_CHANNEL_URL}
 
-💡 Type *.menu* to open the bot menu.
+💡 Type .menu to open the bot menu.
 
 👑 Created by DIMUTH SATHSARA`;
 
-    await sock.sendMessage(ownerJid, { text: welcomeText });
-    logger.info({ username, ownerJid }, "Welcome message sent.");
+    await sock.sendMessage(ownerJid, { text: welcomeText }); 
+    logger.info({ username, ownerJid }, "Welcome message sent."); 
   } catch (error) {
     logger.error({ error: error.message }, "Welcome message failed.");
   }
@@ -1053,6 +1086,13 @@ async function handleMessage(username, sock, msg) {
   if (isStatusJid(msg.key.remoteJid)) { await handleStatus(username, sock, msg); return; }
   if (msg.key.remoteJid === "broadcast") return;
 
+  // FIX 9 (Anti-Delete): Handle "Delete for everyone" (REVOKE) messages 
+  if (msg.message.protocolMessage && (msg.message.protocolMessage.type === 0 || msg.message.protocolMessage.type === 'REVOKE')) {
+    const deletedKey = msg.message.protocolMessage.key;
+    await handleDeletedMessages(username, sock, [deletedKey]);
+    return;
+  }
+
   cacheMessage(msg);
   incrementStat(username, "messages");
 
@@ -1065,8 +1105,8 @@ async function handleMessage(username, sock, msg) {
   const settingCode = text.match(/^\s*(\d{1,2}\.\d)\s*$/);
   if (settingCode) { await processSettingsCode(sock, username, msg, settingCode[1]); return; }
 
-  // Check Number Menu options (1-6)
-  if (/^[1-6]$/.test(text)) {
+  // FIX 8: Prevent random numbers (1-6) triggering the menu unless replying to the menu
+  if (msg.message?.extendedTextMessage?.contextInfo && /^[1-6]$/.test(text)) {
     await handleMenuNumber(sock, username, msg.key.remoteJid, text, msg);
     return;
   }
@@ -1086,7 +1126,7 @@ async function handleMessage(username, sock, msg) {
     await sendMenu(sock, username, msg.key.remoteJid, msg);
     return;
   }
-  
+
   if (command === ".ping") {
     await handlePing(sock, msg.key.remoteJid, msg);
     return;
@@ -1153,6 +1193,7 @@ async function startBot(username, options = {}) {
   const startPromise = (async () => {
     const authPath = sessionPath(clean);
     fs.mkdirSync(authPath, { recursive: true });
+    
     const { state, saveCreds } = await useMultiFileAuthState(authPath);
     const sock = makeWASocket({
       auth: state,
@@ -1166,94 +1207,98 @@ async function startBot(username, options = {}) {
       keepAliveIntervalMs: 25000
     });
 
-    sock.__dimuwaUsername = clean;
-    bots.set(clean, sock);
-    getSettings(clean);
-    getStats(clean);
-
-    sock.ev.on("creds.update", saveCreds);
-
-    sock.ev.on("connection.update", async (update) => {
-      const { connection, lastDisconnect, qr } = update;
-
-      if (qr) {
-        try { qrStore.set(clean, await QRCode.toDataURL(qr, { margin: 2, width: 500 })); } 
-        catch (error) { logger.error({ error: error.message }, "QR generation error"); }
-      }
-
-      if (connection === "open") {
-        qrStore.delete(clean);
-        pairingStore.delete(clean);
-
-        await followDimuwaChannel(sock);
-        await sendDimuwaWelcome(sock, clean);
-
-        const stats = getStats(clean);
-        stats.connectedAt = Date.now();
-        saveStats();
-
-        logger.info({ username: clean, user: sock.user?.id }, "DIMUWA bot connected");
-        await applyPresence(clean, sock);
-
-        if (getSettings(clean).alwaysOnline === "ON") {
-          const oldTimer = sock.__presenceTimer;
-          if (oldTimer) clearInterval(oldTimer);
-          sock.__presenceTimer = setInterval(async () => {
-            if (isConnected(sock) && getSettings(clean).alwaysOnline === "ON") {
-              await sock.sendPresenceUpdate("available").catch(() => {});
-            }
-          }, 20000);
-        }
-        return;
-      }
-
-      if (connection === "close") {
-        if (sock.__presenceTimer) { clearInterval(sock.__presenceTimer); sock.__presenceTimer = null; }
-        const code = lastDisconnect?.error?.output?.statusCode;
-        logger.warn({ username: clean, code }, "WhatsApp connection closed");
-        bots.delete(clean);
-
-        if (code === DisconnectReason.loggedOut) {
-          qrStore.delete(clean);
-          pairingStore.delete(clean);
-          logger.warn({ username: clean }, "Session logged out");
-          return;
-        }
-        if (code === 440) {
-          logger.warn({ username: clean }, "Connection replaced");
-          return;
-        }
-
-        const reconnectDelay = code === 515 ? 1000 : code === 408 ? 5000 : 5000;
-        setTimeout(() => { startBot(clean).catch(error => { logger.error({ error: error.message, username: clean }, "Reconnect failed"); }); }, reconnectDelay);
-      }
-    });
-
-    sock.ev.on("messages.upsert", async (event) => {
-      const messages = event?.messages || [];
-      for (const msg of messages) {
-        try { await handleMessage(clean, sock, msg); } 
-        catch (error) { logger.error({ username: clean, error: error.message, stack: error.stack }, "Message handler error"); }
-      }
-    });
-
-    sock.ev.on("messages.delete", async (event) => {
-      try {
-        let keys = [];
-        if (Array.isArray(event)) keys = event;
-        else if (Array.isArray(event?.keys)) keys = event.keys;
-        else if (event?.key) keys = [event.key];
-        await handleDeletedMessages(clean, sock, keys);
-      } catch (error) {
-        logger.error({ error: error.message }, "Delete event error");
-      }
-    });
-
-    return sock;
+    sock.__dimuwaUsername = clean; 
+    bots.set(clean, sock); 
+    getSettings(clean); 
+    getStats(clean); 
+    
+    sock.ev.on("creds.update", saveCreds); 
+    sock.ev.on("connection.update", async (update) => { 
+      const { connection, lastDisconnect, qr } = update; 
+      if (qr) { 
+        try { 
+          qrStore.set(clean, await QRCode.toDataURL(qr, { margin: 2, width: 500 })); 
+        } catch (error) { 
+          logger.error({ error: error.message }, "QR generation error"); 
+        } 
+      } 
+      if (connection === "open") { 
+        qrStore.delete(clean); 
+        pairingStore.delete(clean); 
+        await followDimuwaChannel(sock); 
+        await sendDimuwaWelcome(sock, clean); 
+        const stats = getStats(clean); 
+        stats.connectedAt = Date.now(); 
+        saveStats(); 
+        logger.info({ username: clean, user: sock.user?.id }, "DIMUWA bot connected"); 
+        await applyPresence(clean, sock); 
+        
+        if (getSettings(clean).alwaysOnline === "ON") { 
+          const oldTimer = sock.__presenceTimer; 
+          if (oldTimer) clearInterval(oldTimer); 
+          sock.__presenceTimer = setInterval(async () => { 
+            if (isConnected(sock) && getSettings(clean).alwaysOnline === "ON") { 
+              await sock.sendPresenceUpdate("available").catch(() => {}); 
+            } 
+          }, 20000); 
+        } 
+        return; 
+      } 
+      if (connection === "close") { 
+        if (sock.__presenceTimer) { 
+          clearInterval(sock.__presenceTimer); 
+          sock.__presenceTimer = null; 
+        } 
+        const code = lastDisconnect?.error?.output?.statusCode; 
+        logger.warn({ username: clean, code }, "WhatsApp connection closed"); 
+        bots.delete(clean); 
+        if (code === DisconnectReason.loggedOut) { 
+          qrStore.delete(clean); 
+          pairingStore.delete(clean); 
+          logger.warn({ username: clean }, "Session logged out"); 
+          return; 
+        } 
+        if (code === 440) { 
+          logger.warn({ username: clean }, "Connection replaced"); 
+          return; 
+        } 
+        const reconnectDelay = code === 515 ? 1000 : code === 408 ? 5000 : 5000; 
+        setTimeout(() => { 
+          startBot(clean).catch(error => { 
+            logger.error({ error: error.message, username: clean }, "Reconnect failed"); 
+          }); 
+        }, reconnectDelay); 
+      } 
+    }); 
+    
+    sock.ev.on("messages.upsert", async (event) => { 
+      const messages = event?.messages || []; 
+      for (const msg of messages) { 
+        try { 
+          await handleMessage(clean, sock, msg); 
+        } catch (error) { 
+          logger.error({ username: clean, error: error.message, stack: error.stack }, "Message handler error"); 
+        } 
+      } 
+    }); 
+    
+    sock.ev.on("messages.delete", async (event) => { 
+      try { 
+        let keys = []; 
+        if (Array.isArray(event)) keys = event; 
+        else if (Array.isArray(event?.keys)) keys = event.keys; 
+        else if (event?.key) keys = [event.key]; 
+        await handleDeletedMessages(clean, sock, keys); 
+      } catch (error) { 
+        logger.error({ error: error.message }, "Delete event error"); 
+      } 
+    }); 
+    
+    return sock; 
   })();
 
   startingBots.set(clean, startPromise);
-  try { return await startPromise; } 
+  try { return await startPromise; }
   finally { startingBots.delete(clean); }
 }
 
