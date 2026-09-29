@@ -1,814 +1,2405 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dimuwa Mini Bot Dashboard</title><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <meta charset="UTF-8">
 
-<style>
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0"
+  >
+
+  <meta name="theme-color" content="#0b0b0f">
+
+  <title>DIMUWA MINI BOT</title>
+
+  <style>
     * {
-        box-sizing: border-box;
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
     }
 
     body {
-        background-color: #050202;
-        color: #fff;
-        font-family: 'Poppins', sans-serif;
-        margin: 0;
-        padding: 0;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        min-height: 100vh;
+      min-height: 100vh;
+      font-family:
+        Inter,
+        Arial,
+        Helvetica,
+        sans-serif;
+      background:
+        radial-gradient(
+          circle at top left,
+          rgba(120, 60, 255, 0.18),
+          transparent 35%
+        ),
+        radial-gradient(
+          circle at top right,
+          rgba(0, 200, 255, 0.12),
+          transparent 35%
+        ),
+        #08080c;
+      color: #ffffff;
     }
 
-    .app-container {
-        width: 100%;
-        max-width: 420px;
-        background-color: #050202;
-        position: relative;
-        padding-bottom: 60px;
+    button,
+    input {
+      font: inherit;
     }
 
-    .header {
-        display: flex;
-        justify-content: space-between;
-        padding: 15px 20px;
-        font-size: 13px;
-        font-weight: 600;
-        letter-spacing: 1px;
+    button {
+      cursor: pointer;
     }
 
-    .header-left {
-        color: #ff3333;
+    .container {
+      width: min(1180px, calc(100% - 30px));
+      margin: auto;
     }
 
-    .header-right {
-        color: #00ff00;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        text-shadow: 0 0 5px rgba(0,255,0,0.5);
+    /* =========================
+       HEADER
+    ========================== */
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      backdrop-filter: blur(18px);
+      background: rgba(8, 8, 12, 0.82);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .nav {
+      min-height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 15px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand img {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      object-fit: cover;
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+
+    .brand-title {
+      font-size: 18px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+    }
+
+    .brand-sub {
+      font-size: 11px;
+      color: #9b9ba8;
+      margin-top: 2px;
+    }
+
+    .online-badge {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      font-size: 12px;
+      color: #aaa;
     }
 
     .dot {
-        width: 8px;
-        height: 8px;
-        background-color: #00ff00;
-        border-radius: 50%;
-        box-shadow: 0 0 8px #00ff00;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #777;
+      box-shadow: 0 0 10px rgba(255,255,255,0.1);
     }
 
-    .main-card {
-        background: linear-gradient(180deg, #110000 0%, #050000 100%);
-        border: 1px solid rgba(255, 0, 0, 0.15);
-        border-radius: 20px;
-        margin: 0 15px;
-        padding: 30px 20px;
-        text-align: center;
-        box-shadow:
-            0 0 30px rgba(255, 0, 0, 0.05),
-            inset 0 0 20px rgba(255, 0, 0, 0.05);
+    .dot.online {
+      background: #31e981;
+      box-shadow: 0 0 14px rgba(49,233,129,0.8);
     }
 
-    .logo-container {
-        width: 90px;
-        height: 90px;
-        margin: 0 auto 15px;
-        border-radius: 20px;
-        padding: 2px;
-        background: linear-gradient(45deg, #ff3333, #4a0000);
-        box-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
+    /* =========================
+       HERO
+    ========================== */
+
+    .hero {
+      padding: 45px 0 25px;
     }
 
-    .logo {
-        width: 100%;
-        height: 100%;
-        border-radius: 18px;
-        object-fit: cover;
+    .hero-card {
+      position: relative;
+      overflow: hidden;
+      padding: 32px;
+      border-radius: 28px;
+      background:
+        linear-gradient(
+          135deg,
+          rgba(110,70,255,0.18),
+          rgba(0,190,255,0.08)
+        ),
+        rgba(255,255,255,0.035);
+      border: 1px solid rgba(255,255,255,0.09);
+      box-shadow: 0 25px 80px rgba(0,0,0,0.35);
     }
 
-    h1 {
-        color: #ff3333;
-        font-size: 22px;
-        margin: 10px 0 5px;
-        font-weight: 700;
-        letter-spacing: 1px;
-        text-shadow: 0 0 10px rgba(255, 0, 0, 0.2);
+    .hero-card::before {
+      content: "";
+      position: absolute;
+      width: 240px;
+      height: 240px;
+      right: -100px;
+      top: -100px;
+      border-radius: 50%;
+      background: rgba(100,80,255,0.12);
+      filter: blur(10px);
     }
 
-    .subtitle {
-        color: #888;
-        font-size: 10px;
-        line-height: 1.4;
-        margin-bottom: 20px;
-        padding: 0 10px;
+    .hero h1 {
+      position: relative;
+      font-size: clamp(30px, 6vw, 58px);
+      line-height: 1;
+      font-weight: 950;
+      letter-spacing: -2px;
     }
 
-    .welcome {
-        color: #00ff00;
-        font-size: 11px;
-        font-weight: 600;
-        margin-bottom: 20px;
-        letter-spacing: 0.5px;
-        text-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
+    .hero h1 span {
+      background: linear-gradient(
+        90deg,
+        #ffffff,
+        #9d8cff,
+        #55dfff
+      );
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
     }
 
-    .input-dark {
-        width: 100%;
-        background: rgba(20, 0, 0, 0.5);
-        border: 1px solid rgba(255, 0, 0, 0.3);
-        color: #fff;
-        padding: 12px;
-        border-radius: 8px;
-        font-family: 'Poppins', sans-serif;
-        font-size: 12px;
-        margin-bottom: 15px;
-        text-align: center;
-        outline: none;
-        transition: 0.3s;
+    .hero p {
+      position: relative;
+      margin-top: 14px;
+      color: #a6a6b4;
+      font-size: 14px;
+      max-width: 650px;
+      line-height: 1.7;
     }
 
-    .input-dark:focus {
-        border-color: #ff3333;
-        box-shadow: 0 0 10px rgba(255, 0, 0, 0.2);
+    /* =========================
+       MAIN GRID
+    ========================== */
+
+    main {
+      padding-bottom: 50px;
     }
 
-    #code-display {
-        color: #00ff00;
-        font-size: 22px;
-        font-weight: 700;
-        letter-spacing: 5px;
-        margin: 15px 0;
-        text-shadow: 0 0 10px rgba(0, 255, 0, 0.4);
-        display: none;
-        background: #000;
-        padding: 10px;
-        border-radius: 8px;
-        border: 1px dashed #00ff00;
+    .section {
+      margin-top: 22px;
     }
 
-    #qr-container {
-        margin: 15px auto;
-        background: #fff;
-        padding: 10px;
-        border-radius: 8px;
-        display: none;
-        width: fit-content;
-        min-height: 180px;
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
     }
 
-    #qrcode {
-        min-width: 160px;
-        min-height: 160px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        color: #111;
-        font-size: 11px;
+    .section-title h2 {
+      font-size: 17px;
+      font-weight: 850;
     }
 
-    .status-message {
-        display: none;
-        margin: 12px 0;
-        padding: 10px;
-        border-radius: 8px;
-        font-size: 11px;
-        line-height: 1.4;
+    .section-title span {
+      color: #777783;
+      font-size: 11px;
     }
 
-    .status-success {
-        display: block;
-        color: #00ff00;
-        border: 1px solid rgba(0,255,0,0.3);
-        background: rgba(0,255,0,0.05);
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
     }
 
-    .status-error {
-        display: block;
-        color: #ff5555;
-        border: 1px solid rgba(255,0,0,0.3);
-        background: rgba(255,0,0,0.05);
+    .card {
+      background: rgba(255,255,255,0.035);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 22px;
+      padding: 20px;
+      box-shadow: 0 14px 45px rgba(0,0,0,0.18);
     }
 
-    .btn-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 10px;
-        margin-bottom: 10px;
+    .card h3 {
+      font-size: 15px;
+      margin-bottom: 7px;
+    }
+
+    .card-description {
+      color: #8e8e9b;
+      font-size: 12px;
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+
+    /* =========================
+       FORM
+    ========================== */
+
+    .input-group {
+      margin-bottom: 12px;
+    }
+
+    .input-group label {
+      display: block;
+      color: #9696a3;
+      font-size: 11px;
+      margin-bottom: 7px;
+    }
+
+    input {
+      width: 100%;
+      border: 1px solid rgba(255,255,255,0.09);
+      background: rgba(0,0,0,0.25);
+      color: #fff;
+      border-radius: 13px;
+      padding: 13px 14px;
+      outline: none;
+      transition: 0.2s;
+    }
+
+    input:focus {
+      border-color: rgba(125,100,255,0.65);
+      box-shadow: 0 0 0 3px rgba(125,100,255,0.08);
+    }
+
+    /* =========================
+       BUTTONS
+    ========================== */
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
     }
 
     .btn {
-        padding: 12px;
-        border-radius: 8px;
-        font-family: 'Poppins', sans-serif;
-        font-size: 11px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+      border: 0;
+      border-radius: 13px;
+      padding: 12px 15px;
+      color: white;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.08);
+      transition:
+        transform 0.15s,
+        background 0.15s,
+        border-color 0.15s;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      background: rgba(255,255,255,0.13);
+    }
+
+    .btn.primary {
+      background: linear-gradient(
+        135deg,
+        #694cff,
+        #3a8cff
+      );
+      border-color: transparent;
+    }
+
+    .btn.success {
+      background: rgba(32,210,120,0.13);
+      border-color: rgba(32,210,120,0.25);
+    }
+
+    .btn.danger {
+      background: rgba(255,60,85,0.12);
+      border-color: rgba(255,60,85,0.22);
+    }
+
+    .btn.warning {
+      background: rgba(255,190,50,0.12);
+      border-color: rgba(255,190,50,0.22);
     }
 
     .btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
     }
 
-    .btn-primary {
-        background: #ff1a1a;
-        color: #fff;
-        border: none;
-        box-shadow: 0 0 15px rgba(255, 0, 0, 0.3);
+    /* =========================
+       PAIRING
+    ========================== */
+
+    .pairing-box {
+      margin-top: 15px;
+      min-height: 80px;
+      padding: 15px;
+      border-radius: 16px;
+      background: rgba(0,0,0,0.22);
+      border: 1px dashed rgba(255,255,255,0.1);
     }
 
-    .btn-primary:hover:not(:disabled) {
-        background: #cc0000;
+    .pairing-code {
+      font-size: 26px;
+      letter-spacing: 5px;
+      font-weight: 900;
+      text-align: center;
+      padding: 8px;
+      color: #a995ff;
     }
 
-    .btn-secondary {
-        background: transparent;
-        color: #ff8888;
-        border: 1px solid rgba(255, 0, 0, 0.3);
+    .qr-box {
+      display: none;
+      margin-top: 15px;
+      text-align: center;
     }
 
-    .btn-secondary:hover:not(:disabled) {
-        background: rgba(255, 0, 0, 0.05);
-        color: #ff3333;
-        border-color: #ff3333;
+    .qr-box img {
+      width: min(260px, 100%);
+      background: white;
+      padding: 12px;
+      border-radius: 18px;
     }
 
-    .btn-full {
-        width: 100%;
-        margin-bottom: 10px;
+    .empty {
+      color: #777783;
+      font-size: 12px;
+      text-align: center;
+      padding: 15px;
     }
+
+    /* =========================
+       STATS
+    ========================== */
 
     .stats-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 12px;
-        margin: 20px 15px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
     }
 
-    .stat-box {
-        background: #0a0202;
-        border: 1px solid rgba(255, 0, 0, 0.15);
-        border-radius: 12px;
-        padding: 15px;
-        text-align: left;
-        transition: 0.3s;
+    .stat {
+      padding: 18px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.035);
+      border: 1px solid rgba(255,255,255,0.07);
     }
 
-    .stat-title {
-        color: #666;
-        font-size: 10px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        margin-bottom: 5px;
+    .stat-label {
+      font-size: 10px;
+      color: #777783;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
     }
 
     .stat-value {
-        color: #ff3333;
-        font-size: 15px;
-        font-weight: 700;
+      font-size: 24px;
+      font-weight: 900;
+      margin-top: 7px;
     }
 
-    .footer {
-        text-align: center;
-        color: #444;
-        font-size: 10px;
-        margin-top: 30px;
-        letter-spacing: 0.5px;
+    /* =========================
+       DETAILS
+    ========================== */
+
+    .details {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 9px;
     }
 
-    .music-btn {
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        background: transparent;
-        border: 1px solid #00ff00;
-        color: #00ff00;
-        padding: 8px 15px;
-        border-radius: 20px;
-        font-size: 10px;
-        font-weight: 600;
-        letter-spacing: 1px;
+    .detail {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 15px;
+      padding: 12px 14px;
+      border-radius: 13px;
+      background: rgba(255,255,255,0.025);
+      border: 1px solid rgba(255,255,255,0.055);
     }
-</style>
 
-</head><body><div class="app-container"><div class="header">
-    <div class="header-left">DIMUWA</div>
-    <div class="header-right">
-        <div class="dot"></div>
-        ONLINE
-    </div>
-</div>
+    .detail span:first-child {
+      color: #83838f;
+      font-size: 11px;
+    }
 
-<div class="main-card">
+    .detail span:last-child {
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      text-align: right;
+      word-break: break-word;
+    }
 
-    <div class="logo-container">
+    /* =========================
+       COMMANDS
+    ========================== */
+
+    .commands {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .command {
+      padding: 14px;
+      border-radius: 15px;
+      background: rgba(255,255,255,0.025);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .command code {
+      display: inline-block;
+      padding: 5px 8px;
+      border-radius: 8px;
+      background: rgba(120,90,255,0.13);
+      color: #b8a9ff;
+      font-size: 11px;
+      margin-bottom: 7px;
+    }
+
+    .command p {
+      color: #858591;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    /* =========================
+       SETTINGS INFO
+    ========================== */
+
+    .settings-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 11px 13px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.025);
+    }
+
+    .setting-name {
+      font-size: 11px;
+      color: #8e8e99;
+    }
+
+    .setting-value {
+      font-size: 11px;
+      font-weight: 850;
+      color: #fff;
+    }
+
+    /* =========================
+       FOOTER
+    ========================== */
+
+    footer {
+      text-align: center;
+      padding: 28px 15px 40px;
+      color: #62626c;
+      font-size: 11px;
+    }
+
+    footer strong {
+      color: #9999a5;
+    }
+
+    /* =========================
+       TOAST
+    ========================== */
+
+    #toast {
+      position: fixed;
+      left: 50%;
+      bottom: 22px;
+      z-index: 5000;
+      transform: translate(-50%, 20px);
+      min-width: 220px;
+      max-width: calc(100% - 30px);
+      padding: 13px 17px;
+      border-radius: 14px;
+      background: rgba(22,22,28,0.95);
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+      color: #fff;
+      font-size: 12px;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: 0.25s;
+    }
+
+    #toast.show {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    #toast.success {
+      border-color: rgba(40,220,130,0.3);
+    }
+
+    #toast.error {
+      border-color: rgba(255,70,90,0.3);
+    }
+
+    /* =========================
+       LOADING
+    ========================== */
+
+    .loading {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .spinner {
+      width: 13px;
+      height: 13px;
+      border: 2px solid rgba(255,255,255,0.25);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* =========================
+       RESPONSIVE
+    ========================== */
+
+    @media (max-width: 900px) {
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .commands {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 700px) {
+      .container {
+        width: min(100% - 20px, 1180px);
+      }
+
+      .hero {
+        padding-top: 25px;
+      }
+
+      .hero-card {
+        padding: 23px;
+        border-radius: 22px;
+      }
+
+      .grid,
+      .details {
+        grid-template-columns: 1fr;
+      }
+
+      .commands {
+        grid-template-columns: 1fr;
+      }
+
+      .nav {
+        min-height: 64px;
+      }
+
+      .brand-sub {
+        display: none;
+      }
+
+      .online-badge {
+        padding: 7px 9px;
+      }
+    }
+
+    @media (max-width: 450px) {
+      .stats-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .stat {
+        padding: 14px;
+      }
+
+      .stat-value {
+        font-size: 20px;
+      }
+
+      .button-row {
+        flex-direction: column;
+      }
+
+      .btn {
+        width: 100%;
+      }
+
+      .hero h1 {
+        font-size: 34px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- =========================
+       HEADER
+  ========================== -->
+
+  <header>
+    <div class="container nav">
+
+      <div class="brand">
         <img
-            src="https://files.catbox.moe/6gq4ub.jpeg"
-            alt="Dimuwa Bot"
-            class="logo"
+          src="https://files.catbox.moe/6gq4ub.jpeg"
+          alt="DIMUWA"
         >
+
+        <div>
+          <div class="brand-title">
+            DIMUWA MINI BOT
+          </div>
+
+          <div class="brand-sub">
+            WhatsApp Bot Dashboard
+          </div>
+        </div>
+      </div>
+
+      <div class="online-badge">
+        <span id="statusDot" class="dot"></span>
+        <span id="statusText">Checking...</span>
+      </div>
+
     </div>
+  </header>
 
-    <h1>DIMUWA MINI</h1>
 
-    <div class="subtitle">
-        Next Generation WhatsApp Automation.<br>
-        Powerful, fast, and completely secure.
+  <!-- =========================
+       HERO
+  ========================== -->
+
+  <section class="hero">
+    <div class="container">
+
+      <div class="hero-card">
+
+        <h1>
+          <span>DIMUWA</span>
+          MINI BOT
+        </h1>
+
+        <p>
+          Manage your WhatsApp bot, pairing, QR connection,
+          statistics, commands and system controls from one dashboard.
+        </p>
+
+      </div>
+
     </div>
+  </section>
 
-    <div class="welcome">
-        WELCOME, DIMUWA ADMIN
-    </div>
 
-    <input
-        type="text"
-        id="phone-number"
-        class="input-dark"
-        placeholder="WhatsApp Number (e.g. 94740325746)"
-        autocomplete="off"
-        inputmode="numeric"
-    >
+  <main class="container">
 
-    <div id="status-message" class="status-message"></div>
+    <!-- =========================
+         CONNECTION
+    ========================== -->
 
-    <div id="code-display"></div>
+    <section class="section">
 
-    <div id="qr-container">
-        <div id="qrcode"></div>
-    </div>
+      <div class="section-title">
+        <h2>🔐 Bot Connection</h2>
+        <span>Pair your WhatsApp account</span>
+      </div>
 
-    <div class="btn-grid">
+      <div class="grid">
+
+        <!-- PAIRING CARD -->
+
+        <div class="card">
+
+          <h3>📱 Pairing Code</h3>
+
+          <p class="card-description">
+            Enter a bot username and WhatsApp number to request
+            a WhatsApp pairing code.
+          </p>
+
+          <div class="input-group">
+            <label>BOT USERNAME</label>
+
+            <input
+              id="username"
+              type="text"
+              placeholder="example"
+              autocomplete="off"
+            >
+          </div>
+
+          <div class="input-group">
+            <label>WHATSAPP NUMBER</label>
+
+            <input
+              id="phone"
+              type="text"
+              placeholder="947XXXXXXXX"
+              autocomplete="off"
+            >
+          </div>
+
+          <div class="button-row">
+
+            <button
+              class="btn primary"
+              id="pairBtn"
+              onclick="getPairingCode()"
+            >
+              🔐 GET PAIRING CODE
+            </button>
+
+            <button
+              class="btn"
+              onclick="copyPairingCode()"
+            >
+              📋 COPY CODE
+            </button>
+
+          </div>
+
+          <div class="pairing-box">
+
+            <div
+              id="pairingResult"
+              class="empty"
+            >
+              Pairing code will appear here.
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <!-- QR CARD -->
+
+        <div class="card">
+
+          <h3>📷 QR Connection</h3>
+
+          <p class="card-description">
+            Generate a QR code and scan it using WhatsApp
+            Linked Devices.
+          </p>
+
+          <div class="button-row">
+
+            <button
+              class="btn primary"
+              id="qrBtn"
+              onclick="getQR()"
+            >
+              📷 GET QR CODE
+            </button>
+
+            <button
+              class="btn"
+              onclick="hideQR()"
+            >
+              ✕ HIDE QR
+            </button>
+
+          </div>
+
+          <div
+            id="qrBox"
+            class="qr-box"
+          >
+
+            <img
+              id="qrImage"
+              src=""
+              alt="WhatsApp QR"
+            >
+
+            <p
+              id="qrStatus"
+              class="empty"
+            >
+              Waiting for QR...
+            </p>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- =========================
+         BOT DETAILS
+    ========================== -->
+
+    <section class="section">
+
+      <div class="section-title">
+
+        <h2>🤖 Bot Details</h2>
+
         <button
-            id="pair-btn"
-            class="btn btn-primary"
-            onclick="requestPairingCode()"
+          class="btn"
+          onclick="loadDetails()"
         >
-            PAIR CODE
+          🔄 Refresh
         </button>
 
-        <button
-            id="qr-btn"
-            class="btn btn-primary"
-            onclick="loadQRCode()"
-            style="background: transparent; border: 1px solid #ff1a1a; color: #ff1a1a;"
-        >
-            SCAN QR
-        </button>
-    </div>
+      </div>
 
-    <div class="btn-grid">
-        <button
-            class="btn btn-secondary"
-            onclick="showBotDetails()"
-        >
-            BOT DETAILS
-        </button>
+      <div class="card">
+
+        <div class="details">
+
+          <div class="detail">
+            <span>Bot Status</span>
+            <span id="detailStatus">-</span>
+          </div>
+
+          <div class="detail">
+            <span>Username</span>
+            <span id="detailUsername">-</span>
+          </div>
+
+          <div class="detail">
+            <span>Phone</span>
+            <span id="detailPhone">-</span>
+          </div>
+
+          <div class="detail">
+            <span>Bot Name</span>
+            <span id="detailName">-</span>
+          </div>
+
+          <div class="detail">
+            <span>WhatsApp ID</span>
+            <span id="detailJid">-</span>
+          </div>
+
+          <div class="detail">
+            <span>Connected Since</span>
+            <span id="detailSince">-</span>
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- =========================
+         STATISTICS
+    ========================== -->
+
+    <section class="section">
+
+      <div class="section-title">
+
+        <h2>📊 Bot Statistics</h2>
 
         <button
-            class="btn btn-secondary"
+          class="btn"
+          onclick="loadStats()"
+        >
+          🔄 Refresh
+        </button>
+
+      </div>
+
+      <div class="stats-grid">
+
+        <div class="stat">
+          <div class="stat-label">
+            Messages
+          </div>
+
+          <div
+            class="stat-value"
+            id="statMessages"
+          >
+            0
+          </div>
+        </div>
+
+        <div class="stat">
+          <div class="stat-label">
+            Commands
+          </div>
+
+          <div
+            class="stat-value"
+            id="statCommands"
+          >
+            0
+          </div>
+        </div>
+
+        <div class="stat">
+          <div class="stat-label">
+            Downloads
+          </div>
+
+          <div
+            class="stat-value"
+            id="statDownloads"
+          >
+            0
+          </div>
+        </div>
+
+        <div class="stat">
+          <div class="stat-label">
+            Uptime
+          </div>
+
+          <div
+            class="stat-value"
+            id="statUptime"
+          >
+            -
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- =========================
+         SYSTEM CONTROLS
+    ========================== -->
+
+    <section class="section">
+
+      <div class="section-title">
+        <h2>⚙️ System Controls</h2>
+        <span>Account management</span>
+      </div>
+
+      <div class="card">
+
+        <div class="button-row">
+
+          <button
+            class="btn success"
+            onclick="loadAll()"
+          >
+            🔄 REFRESH BOT
+          </button>
+
+          <button
+            class="btn danger"
+            onclick="logoutBot()"
+          >
+            🚪 LOGOUT
+          </button>
+
+          <button
+            class="btn warning"
             onclick="unlinkBot()"
+          >
+            🔗 UNLINK
+          </button>
+
+        </div>
+
+        <p
+          class="card-description"
+          style="margin-top:14px;margin-bottom:0;"
         >
-            UNLINK BOT
+          Logout and unlink actions affect the selected bot
+          account. Use them only when you want to disconnect
+          the WhatsApp session.
+        </p>
+
+      </div>
+
+    </section>
+
+
+    <!-- =========================
+         SETTINGS
+    ========================== -->
+
+    <section class="section">
+
+      <div class="section-title">
+
+        <h2>⚙️ Current Settings</h2>
+
+        <button
+          class="btn"
+          onclick="loadSettings()"
+        >
+          🔄 Refresh
         </button>
-    </div>
 
-    <button
-        class="btn btn-secondary btn-full"
-        onclick="logoutBot()"
-    >
-        LOGOUT
-    </button>
+      </div>
 
-</div>
+      <div class="card">
 
-<div class="stats-grid">
+        <div class="settings-list">
 
-    <div class="stat-box">
-        <div class="stat-title">SERVER</div>
-        <div id="server-status" class="stat-value">CHECKING...</div>
-    </div>
+          <div class="setting-row">
+            <span class="setting-name">
+              Always Online
+            </span>
 
-    <div class="stat-box">
-        <div class="stat-title">LATENCY</div>
-        <div id="latency" class="stat-value">-- ms</div>
-    </div>
+            <span
+              class="setting-value"
+              id="setAlwaysOnline"
+            >
+              -
+            </span>
+          </div>
 
-    <div class="stat-box">
-        <div class="stat-title">UPTIME</div>
-        <div id="uptime" class="stat-value">00:00:00</div>
-    </div>
+          <div class="setting-row">
+            <span class="setting-name">
+              Auto Read
+            </span>
 
-    <div class="stat-box">
-        <div class="stat-title">ACTIVE BOTS</div>
-        <div id="active-bots" class="stat-value">0</div>
-    </div>
+            <span
+              class="setting-value"
+              id="setAutoRead"
+            >
+              -
+            </span>
+          </div>
 
-</div>
+          <div class="setting-row">
+            <span class="setting-name">
+              Bot Mode
+            </span>
 
-<div class="footer">
-    © 2026 DIMUWA BOT. Created by DIMUTH SATHSARA
-</div>
+            <span
+              class="setting-value"
+              id="setBotMode"
+            >
+              -
+            </span>
+          </div>
 
-<div class="music-btn">
-    🎵 MUSIC: ON
-</div>
+          <div class="setting-row">
+            <span class="setting-name">
+              Status Read
+            </span>
 
-</div><script>
+            <span
+              class="setting-value"
+              id="setStatusRead"
+            >
+              -
+            </span>
+          </div>
 
-    const adminUsername = "admin";
-    const startTime = Date.now();
+          <div class="setting-row">
+            <span class="setting-name">
+              Status React
+            </span>
 
-    let qrRefreshTimer = null;
+            <span
+              class="setting-value"
+              id="setStatusReact"
+            >
+              -
+            </span>
+          </div>
 
-    function setStatus(message, type = "success") {
-        const box = document.getElementById("status-message");
+          <div class="setting-row">
+            <span class="setting-name">
+              Composing
+            </span>
 
-        box.innerText = message;
-        box.className = "status-message " +
-            (type === "error" ? "status-error" : "status-success");
+            <span
+              class="setting-value"
+              id="setComposing"
+            >
+              -
+            </span>
+          </div>
+
+          <div class="setting-row">
+            <span class="setting-name">
+              Anti-Delete
+            </span>
+
+            <span
+              class="setting-value"
+              id="setAntiDelete"
+            >
+              -
+            </span>
+          </div>
+
+          <div class="setting-row">
+            <span class="setting-name">
+              Anti-Delete Target
+            </span>
+
+            <span
+              class="setting-value"
+              id="setAntiDelTarget"
+            >
+              -
+            </span>
+          </div>
+
+          <div class="setting-row">
+            <span class="setting-name">
+              View Once Target
+            </span>
+
+            <span
+              class="setting-value"
+              id="setVvTarget"
+            >
+              -
+            </span>
+          </div>
+
+          <div class="setting-row">
+            <span class="setting-name">
+              Save Target
+            </span>
+
+            <span
+              class="setting-value"
+              id="setSaveTarget"
+            >
+              -
+            </span>
+          </div>
+
+          <div class="setting-row">
+            <span class="setting-name">
+              Bot Power
+            </span>
+
+            <span
+              class="setting-value"
+              id="setBotPower"
+            >
+              -
+            </span>
+          </div>
+
+        </div>
+
+        <p
+          class="card-description"
+          style="margin-top:15px;margin-bottom:0;"
+        >
+          Settings are controlled from WhatsApp using
+          <strong>.settings</strong>.
+        </p>
+
+      </div>
+
+    </section>
+
+
+    <!-- =========================
+         COMMANDS
+    ========================== -->
+
+    <section class="section">
+
+      <div class="section-title">
+        <h2>📋 Bot Commands</h2>
+        <span>Available commands</span>
+      </div>
+
+      <div class="commands">
+
+        <div class="command">
+          <code>.menu</code>
+          <p>
+            Show the main bot menu.
+          </p>
+        </div>
+
+        <div class="command">
+          <code>.alive</code>
+          <p>
+            Check whether the bot is alive.
+          </p>
+        </div>
+
+        <div class="command">
+          <code>.status</code>
+          <p>
+            Show bot status and information.
+          </p>
+        </div>
+
+        <div class="command">
+          <code>.settings</code>
+          <p>
+            Open the settings menu and configure
+            bot features.
+          </p>
+        </div>
+
+        <div class="command">
+          <code>.vv</code>
+          <p>
+            Save/re-send View Once media according
+            to the selected target.
+          </p>
+        </div>
+
+        <div class="command">
+          <code>.save</code>
+          <p>
+            Save supported media such as image,
+            video, audio, document and sticker.
+          </p>
+        </div>
+
+        <div class="command">
+          <code>TikTok URL</code>
+          <p>
+            Download supported public TikTok videos.
+          </p>
+        </div>
+
+        <div class="command">
+          <code>YouTube URL</code>
+          <p>
+            Download supported YouTube media.
+          </p>
+        </div>
+
+        <div class="command">
+          <code>Facebook URL</code>
+          <p>
+            Download supported public Facebook media.
+          </p>
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- =========================
+         SETTINGS HELP
+    ========================== -->
+
+    <section class="section">
+
+      <div class="section-title">
+        <h2>🛠️ Settings Codes</h2>
+        <span>Quick reference</span>
+      </div>
+
+      <div class="card">
+
+        <div class="commands">
+
+          <div class="command">
+            <code>1.1 / 1.2</code>
+            <p>
+              Always Online ON / OFF
+            </p>
+          </div>
+
+          <div class="command">
+            <code>2.1 / 2.2</code>
+            <p>
+              Auto Read ON / OFF
+            </p>
+          </div>
+
+          <div class="command">
+            <code>3.1 / 3.2 / 3.3</code>
+            <p>
+              Public / Private / Inbox
+            </p>
+          </div>
+
+          <div class="command">
+            <code>4.1 / 4.2</code>
+            <p>
+              Status Read ON / OFF
+            </p>
+          </div>
+
+          <div class="command">
+            <code>5.1 / 5.2 / 5.3</code>
+            <p>
+              Green / Random / Off
+            </p>
+          </div>
+
+          <div class="command">
+            <code>7.1 / 7.2</code>
+            <p>
+              Composing ON / OFF
+            </p>
+          </div>
+
+          <div class="command">
+            <code>9.1 / 9.2</code>
+            <p>
+              Anti-Delete ON / OFF
+            </p>
+          </div>
+
+          <div class="command">
+            <code>10.1 / 10.2</code>
+            <p>
+              Anti-Delete Same Chat / My Inbox
+            </p>
+          </div>
+
+          <div class="command">
+            <code>11.1 / 11.2</code>
+            <p>
+              .vv Same Chat / My Inbox
+            </p>
+          </div>
+
+          <div class="command">
+            <code>12.1 / 12.2</code>
+            <p>
+              .save Same Chat / My Inbox
+            </p>
+          </div>
+
+          <div class="command">
+            <code>13.1 / 13.2</code>
+            <p>
+              Bot Power ON / OFF
+            </p>
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+
+  <!-- =========================
+       FOOTER
+  ========================== -->
+
+  <footer>
+    © 2026 <strong>DIMUWA BOT</strong>.
+    Created by DIMUTH SATHSARA
+  </footer>
+
+
+  <!-- =========================
+       TOAST
+  ========================== -->
+
+  <div id="toast"></div>
+
+
+  <!-- =========================
+       JAVASCRIPT
+  ========================== -->
+
+  <script>
+
+    /*
+      DIMUWA MINI BOT DASHBOARD
+
+      This dashboard talks to the API routes
+      provided by index.js.
+
+      No external JavaScript library is required.
+    */
+
+
+    // ---------------------------------
+    // GLOBAL STATE
+    // ---------------------------------
+
+    let currentUsername = "";
+
+    let lastPairingCode = "";
+
+
+    // ---------------------------------
+    // ELEMENT HELPER
+    // ---------------------------------
+
+    function $(id) {
+      return document.getElementById(id);
     }
 
-    function clearStatus() {
-        const box = document.getElementById("status-message");
-        box.innerText = "";
-        box.className = "status-message";
+
+    // ---------------------------------
+    // TOAST
+    // ---------------------------------
+
+    function toast(message, type = "") {
+
+      const box = $("toast");
+
+      box.textContent = message;
+
+      box.className = "";
+
+      box.classList.add("show");
+
+      if (type) {
+        box.classList.add(type);
+      }
+
+      clearTimeout(window.__toastTimer);
+
+      window.__toastTimer = setTimeout(() => {
+        box.classList.remove("show");
+      }, 3000);
     }
 
-    function normalizePhoneNumber(value) {
 
-        let phone = String(value || "").trim();
+    // ---------------------------------
+    // API HELPER
+    // ---------------------------------
 
-        phone = phone.replace(/[^0-9+]/g, "");
+    async function api(url, options = {}) {
 
-        if (phone.startsWith("+")) {
-            phone = phone.substring(1);
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          ...(options.headers || {})
         }
+      });
 
-        if (phone.startsWith("0")) {
-            phone = "94" + phone.substring(1);
-        }
+      let data = {};
 
-        return phone;
+      try {
+        data = await response.json();
+      } catch {
+        data = {};
+      }
+
+      if (!response.ok) {
+
+        throw new Error(
+          data.error ||
+          data.message ||
+          `Request failed (${response.status})`
+        );
+
+      }
+
+      return data;
     }
 
-    function setLoading(buttonId, loading) {
-        const button = document.getElementById(buttonId);
 
-        if (!button) return;
+    // ---------------------------------
+    // USERNAME
+    // ---------------------------------
 
-        button.disabled = loading;
+    function getUsername() {
 
-        if (buttonId === "pair-btn") {
-            button.innerText = loading ? "WAIT..." : "PAIR CODE";
-        }
+      const value = $("username").value.trim();
 
-        if (buttonId === "qr-btn") {
-            button.innerText = loading ? "LOADING..." : "SCAN QR";
-        }
+      if (!value) {
+        toast("Enter bot username first.", "error");
+        return null;
+      }
+
+      currentUsername = value;
+
+      localStorage.setItem(
+        "dimuwa_username",
+        value
+      );
+
+      return value;
     }
 
-    async function requestPairingCode() {
 
-        clearStatus();
+    // ---------------------------------
+    // PHONE
+    // ---------------------------------
 
-        const phoneInput = document.getElementById("phone-number");
-        const phone = normalizePhoneNumber(phoneInput.value);
+    function getPhone() {
 
-        const display = document.getElementById("code-display");
-        const qrContainer = document.getElementById("qr-container");
+      const value = $("phone").value
+        .trim()
+        .replace(/\s+/g, "");
 
-        if (!phone) {
-            setStatus("Please enter your WhatsApp number.", "error");
-            return;
-        }
+      if (!value) {
+        toast("Enter WhatsApp number first.", "error");
+        return null;
+      }
 
-        if (!/^94\d{9}$/.test(phone)) {
-            setStatus(
-                "Invalid Sri Lankan number. Example: 94740325746",
-                "error"
-            );
-            return;
-        }
-
-        if (qrRefreshTimer) {
-            clearInterval(qrRefreshTimer);
-            qrRefreshTimer = null;
-        }
-
-        qrContainer.style.display = "none";
-        display.style.display = "block";
-        display.innerText = "WAIT...";
-
-        setLoading("pair-btn", true);
-
-        try {
-
-            const response = await fetch("/get-pairing-code", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    username: adminUsername,
-                    phone: phone
-                })
-            });
-
-            const data = await response.json();
-
-            if (response.ok && data.success && data.code) {
-
-                display.innerText = data.code;
-
-                setStatus(
-                    "Pairing code generated. On WhatsApp go to Linked Devices → Link a Device → Link with phone number, then enter the code.",
-                    "success"
-                );
-
-            } else {
-
-                display.innerText = "ERROR";
-
-                setStatus(
-                    data.error || "Failed to generate pairing code.",
-                    "error"
-                );
-            }
-
-        } catch (error) {
-
-            console.error(error);
-
-            display.innerText = "FAILED";
-
-            setStatus(
-                "Server connection failed. Check your deployment logs.",
-                "error"
-            );
-
-        } finally {
-
-            setLoading("pair-btn", false);
-        }
+      return value;
     }
 
-    async function loadQRCode() {
 
-        clearStatus();
+    // ---------------------------------
+    // PAIRING CODE
+    // ---------------------------------
 
-        const display = document.getElementById("code-display");
-        const qrContainer = document.getElementById("qr-container");
-        const qrcodeDiv = document.getElementById("qrcode");
+    async function getPairingCode() {
 
-        display.style.display = "none";
-        qrContainer.style.display = "block";
+      const username = getUsername();
 
-        setLoading("qr-btn", true);
+      if (!username) return;
 
-        qrcodeDiv.innerHTML = "Loading QR...";
+      const phone = getPhone();
 
-        try {
+      if (!phone) return;
 
-            const response = await fetch(
-                `/get-qr?user=${encodeURIComponent(adminUsername)}&t=${Date.now()}`
-            );
+      const button = $("pairBtn");
 
-            const data = await response.json();
+      button.disabled = true;
 
-            if (!response.ok || !data.qr) {
+      button.innerHTML =
+        `<span class="loading">
+          <span class="spinner"></span>
+          REQUESTING...
+        </span>`;
 
-                qrcodeDiv.innerText =
-                    data.error || "QR unavailable. Please try again.";
+      $("pairingResult").innerHTML =
+        `<div class="empty">
+          Requesting pairing code...
+        </div>`;
 
-                setStatus(
-                    data.error || "Failed to generate QR.",
-                    "error"
-                );
+      try {
 
-                setLoading("qr-btn", false);
-                return;
-            }
+        const data = await api(
+          `/get-pairing-code?username=${encodeURIComponent(username)}&phone=${encodeURIComponent(phone)}`
+        );
 
-            qrcodeDiv.innerHTML = "";
+        const code =
+          data.code ||
+          data.pairingCode ||
+          data.pairing ||
+          "";
 
-            new QRCode(qrcodeDiv, {
-                text: data.qr,
-                width: 180,
-                height: 180,
-                correctLevel: QRCode.CorrectLevel.M
-            });
+        lastPairingCode = code;
 
-            setStatus(
-                "QR generated. Scan it from WhatsApp → Linked Devices → Link a Device.",
-                "success"
-            );
+        if (!code) {
 
-            setLoading("qr-btn", false);
+          $("pairingResult").innerHTML =
+            `<div class="empty">
+              ${escapeHtml(
+                data.message ||
+                "Pairing code was not returned."
+              )}
+            </div>`;
 
-            startQRRefresh();
+          toast(
+            data.message ||
+            "Pairing code not available.",
+            "error"
+          );
 
-        } catch (error) {
-
-            console.error(error);
-
-            qrcodeDiv.innerText = "ERROR";
-
-            setStatus(
-                "Could not connect to the bot server.",
-                "error"
-            );
-
-            setLoading("qr-btn", false);
-        }
-    }
-
-    function startQRRefresh() {
-
-        if (qrRefreshTimer) {
-            clearInterval(qrRefreshTimer);
+          return;
         }
 
-        qrRefreshTimer = setInterval(async () => {
+        $("pairingResult").innerHTML =
+          `<div class="pairing-code">
+            ${escapeHtml(code)}
+          </div>
+          <div class="empty">
+            Enter this code in WhatsApp Linked Devices.
+          </div>`;
 
-            try {
+        toast(
+          "Pairing code generated.",
+          "success"
+        );
 
-                const response = await fetch(
-                    `/get-qr?user=${encodeURIComponent(adminUsername)}&t=${Date.now()}`
-                );
+        loadAll();
 
-                const data = await response.json();
+      } catch (error) {
 
-                if (data.connected) {
+        $("pairingResult").innerHTML =
+          `<div class="empty">
+            ${escapeHtml(error.message)}
+          </div>`;
 
-                    clearInterval(qrRefreshTimer);
-                    qrRefreshTimer = null;
+        toast(
+          error.message,
+          "error"
+        );
 
-                    document.getElementById("qr-container").style.display = "none";
+      } finally {
 
-                    setStatus(
-                        "WhatsApp connected successfully! ✅",
-                        "success"
-                    );
+        button.disabled = false;
 
-                    updateStats();
+        button.textContent =
+          "🔐 GET PAIRING CODE";
 
-                    return;
-                }
+      }
 
-                if (data.qr) {
-
-                    const qrcodeDiv = document.getElementById("qrcode");
-
-                    qrcodeDiv.innerHTML = "";
-
-                    new QRCode(qrcodeDiv, {
-                        text: data.qr,
-                        width: 180,
-                        height: 180,
-                        correctLevel: QRCode.CorrectLevel.M
-                    });
-                }
-
-            } catch (error) {
-                console.log("QR refresh error:", error);
-            }
-
-        }, 12000);
     }
+
+
+    // ---------------------------------
+    // COPY PAIRING CODE
+    // ---------------------------------
+
+    async function copyPairingCode() {
+
+      if (!lastPairingCode) {
+
+        toast(
+          "No pairing code available.",
+          "error"
+        );
+
+        return;
+      }
+
+      try {
+
+        await navigator.clipboard.writeText(
+          lastPairingCode
+        );
+
+        toast(
+          "Pairing code copied.",
+          "success"
+        );
+
+      } catch {
+
+        toast(
+          "Could not copy pairing code.",
+          "error"
+        );
+
+      }
+
+    }
+
+
+    // ---------------------------------
+    // QR CODE
+    // ---------------------------------
+
+    async function getQR() {
+
+      const username = getUsername();
+
+      if (!username) return;
+
+      const button = $("qrBtn");
+
+      button.disabled = true;
+
+      button.innerHTML =
+        `<span class="loading">
+          <span class="spinner"></span>
+          LOADING...
+        </span>`;
+
+      $("qrBox").style.display = "block";
+
+      $("qrStatus").textContent =
+        "Requesting QR code...";
+
+      try {
+
+        const data = await api(
+          `/qr?username=${encodeURIComponent(username)}`
+        );
+
+        const qr =
+          data.qr ||
+          data.qrCode ||
+          data.image ||
+          "";
+
+        if (!qr) {
+
+          $("qrStatus").textContent =
+            data.message ||
+            "QR code not available.";
+
+          toast(
+            data.message ||
+            "QR code not available.",
+            "error"
+          );
+
+          return;
+        }
+
+        $("qrImage").src =
+          qr.startsWith("data:")
+            ? qr
+            : `data:image/png;base64,${qr}`;
+
+        $("qrStatus").textContent =
+          "Scan this QR using WhatsApp.";
+
+        toast(
+          "QR code loaded.",
+          "success"
+        );
+
+      } catch (error) {
+
+        $("qrStatus").textContent =
+          error.message;
+
+        toast(
+          error.message,
+          "error"
+        );
+
+      } finally {
+
+        button.disabled = false;
+
+        button.textContent =
+          "📷 GET QR CODE";
+
+      }
+
+    }
+
+
+    // ---------------------------------
+    // HIDE QR
+    // ---------------------------------
+
+    function hideQR() {
+
+      $("qrBox").style.display = "none";
+
+      $("qrImage").src = "";
+
+    }
+
+
+    // ---------------------------------
+    // DETAILS
+    // ---------------------------------
+
+    async function loadDetails() {
+
+      const username =
+        $("username").value.trim() ||
+        localStorage.getItem(
+          "dimuwa_username"
+        );
+
+      if (!username) return;
+
+      try {
+
+        const data = await api(
+          `/details?username=${encodeURIComponent(username)}`
+        );
+
+        const bot =
+          data.bot ||
+          data;
+
+        $("detailStatus").textContent =
+          formatValue(
+            bot.status ||
+            bot.connection ||
+            bot.connected
+          );
+
+        $("detailUsername").textContent =
+          formatValue(
+            bot.username ||
+            username
+          );
+
+        $("detailPhone").textContent =
+          formatValue(
+            bot.phone ||
+            bot.number
+          );
+
+        $("detailName").textContent =
+          formatValue(
+            bot.name ||
+            bot.pushName ||
+            bot.botName
+          );
+
+        $("detailJid").textContent =
+          formatValue(
+            bot.jid ||
+            bot.id ||
+            bot.user
+          );
+
+        $("detailSince").textContent =
+          formatDate(
+            bot.connectedAt ||
+            bot.startedAt ||
+            bot.since
+          );
+
+        updateConnectionUI(
+          bot.connected === true ||
+          String(bot.status || "")
+            .toLowerCase()
+            === "connected" ||
+          String(bot.status || "")
+            .toLowerCase()
+            === "online"
+        );
+
+      } catch (error) {
+
+        updateConnectionUI(false);
+
+      }
+
+    }
+
+
+    // ---------------------------------
+    // STATISTICS
+    // ---------------------------------
+
+    async function loadStats() {
+
+      const username =
+        $("username").value.trim() ||
+        localStorage.getItem(
+          "dimuwa_username"
+        );
+
+      if (!username) return;
+
+      try {
+
+        const data = await api(
+          `/stats?username=${encodeURIComponent(username)}`
+        );
+
+        const stats =
+          data.stats ||
+          data;
+
+        $("statMessages").textContent =
+          formatNumber(
+            stats.messages ??
+            stats.messageCount ??
+            0
+          );
+
+        $("statCommands").textContent =
+          formatNumber(
+            stats.commands ??
+            stats.commandCount ??
+            0
+          );
+
+        $("statDownloads").textContent =
+          formatNumber(
+            stats.downloads ??
+            stats.downloadCount ??
+            0
+          );
+
+        $("statUptime").textContent =
+          formatUptime(
+            stats.uptime
+          );
+
+      } catch {
+
+        $("statMessages").textContent = "0";
+        $("statCommands").textContent = "0";
+        $("statDownloads").textContent = "0";
+        $("statUptime").textContent = "-";
+
+      }
+
+    }
+
+
+    // ---------------------------------
+    // SETTINGS
+    // ---------------------------------
+
+    async function loadSettings() {
+
+      const username =
+        $("username").value.trim() ||
+        localStorage.getItem(
+          "dimuwa_username"
+        );
+
+      if (!username) return;
+
+      try {
+
+        const data = await api(
+          `/settings?username=${encodeURIComponent(username)}`
+        );
+
+        const settings =
+          data.settings ||
+          data;
+
+        $("setAlwaysOnline").textContent =
+          formatValue(
+            settings.alwaysOnline
+          );
+
+        $("setAutoRead").textContent =
+          formatValue(
+            settings.autoRead
+          );
+
+        $("setBotMode").textContent =
+          formatValue(
+            settings.botMode
+          );
+
+        $("setStatusRead").textContent =
+          formatValue(
+            settings.statusRead
+          );
+
+        $("setStatusReact").textContent =
+          formatValue(
+            settings.statusReact
+          );
+
+        $("setComposing").textContent =
+          formatValue(
+            settings.composing
+          );
+
+        $("setAntiDelete").textContent =
+          formatValue(
+            settings.antiDelete
+          );
+
+        $("setAntiDelTarget").textContent =
+          formatValue(
+            settings.antiDelTarget
+          );
+
+        $("setVvTarget").textContent =
+          formatValue(
+            settings.vvTarget
+          );
+
+        $("setSaveTarget").textContent =
+          formatValue(
+            settings.saveTarget
+          );
+
+        $("setBotPower").textContent =
+          formatValue(
+            settings.botPower
+          );
+
+      } catch {
+
+        // Settings endpoint may not exist
+        // in older backend versions.
+        // WhatsApp .settings still controls
+        // the bot settings.
+
+      }
+
+    }
+
+
+    // ---------------------------------
+    // LOGOUT
+    // ---------------------------------
+
+    async function logoutBot() {
+
+      const username = getUsername();
+
+      if (!username) return;
+
+      const confirmed =
+        confirm(
+          `Logout bot "${username}"?`
+        );
+
+      if (!confirmed) return;
+
+      try {
+
+        const data = await api(
+          `/logout?username=${encodeURIComponent(username)}`,
+          {
+            method: "POST"
+          }
+        );
+
+        toast(
+          data.message ||
+          "Bot logged out.",
+          "success"
+        );
+
+        updateConnectionUI(false);
+
+        loadAll();
+
+      } catch (error) {
+
+        toast(
+          error.message,
+          "error"
+        );
+
+      }
+
+    }
+
+
+    // ---------------------------------
+    // UNLINK
+    // ---------------------------------
 
     async function unlinkBot() {
 
-        const ok = confirm(
-            "Are you sure you want to unlink this WhatsApp bot?"
+      const username = getUsername();
+
+      if (!username) return;
+
+      const confirmed =
+        confirm(
+          `Unlink WhatsApp session for "${username}"?`
         );
 
-        if (!ok) return;
+      if (!confirmed) return;
 
-        clearStatus();
+      try {
 
-        try {
+        const data = await api(
+          `/unlink?username=${encodeURIComponent(username)}`,
+          {
+            method: "POST"
+          }
+        );
 
-            const response = await fetch("/disconnect", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    username: adminUsername
-                })
-            });
+        toast(
+          data.message ||
+          "Bot unlinked.",
+          "success"
+        );
 
-            const data = await response.json();
+        updateConnectionUI(false);
 
-            if (response.ok && data.success) {
+        loadAll();
 
-                document.getElementById("code-display").style.display = "none";
-                document.getElementById("qr-container").style.display = "none";
+      } catch (error) {
 
-                setStatus(
-                    "Bot successfully unlinked.",
-                    "success"
-                );
+        toast(
+          error.message,
+          "error"
+        );
 
-                updateStats();
+      }
 
-            } else {
+    }
 
-                setStatus(
-                    data.error || "Unable to unlink bot.",
-                    "error"
-                );
-            }
 
-        } catch (error) {
+    // ---------------------------------
+    // CONNECTION UI
+    // ---------------------------------
 
-            setStatus(
-                "Failed to contact server.",
-                "error"
-            );
+    function updateConnectionUI(online) {
+
+      const dot =
+        $("statusDot");
+
+      const text =
+        $("statusText");
+
+      if (online) {
+
+        dot.classList.add("online");
+
+        text.textContent =
+          "BOT ONLINE";
+
+      } else {
+
+        dot.classList.remove("online");
+
+        text.textContent =
+          "BOT OFFLINE";
+
+      }
+
+    }
+
+
+    // ---------------------------------
+    // LOAD EVERYTHING
+    // ---------------------------------
+
+    async function loadAll() {
+
+      const username =
+        $("username").value.trim();
+
+      if (!username) return;
+
+      currentUsername =
+        username;
+
+      localStorage.setItem(
+        "dimuwa_username",
+        username
+      );
+
+      await Promise.allSettled([
+        loadDetails(),
+        loadStats(),
+        loadSettings()
+      ]);
+
+    }
+
+
+    // ---------------------------------
+    // HELPERS
+    // ---------------------------------
+
+    function escapeHtml(value) {
+
+      if (
+        value === null ||
+        value === undefined
+      ) {
+        return "";
+      }
+
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+
+    }
+
+
+    function formatValue(value) {
+
+      if (
+        value === null ||
+        value === undefined ||
+        value === ""
+      ) {
+        return "-";
+      }
+
+      if (typeof value === "boolean") {
+        return value ? "ON" : "OFF";
+      }
+
+      return String(value)
+        .replace(/_/g, " ")
+        .toUpperCase();
+
+    }
+
+
+    function formatNumber(value) {
+
+      const number =
+        Number(value);
+
+      if (
+        Number.isNaN(number)
+      ) {
+        return "0";
+      }
+
+      return number.toLocaleString();
+
+    }
+
+
+    function formatDate(value) {
+
+      if (!value) {
+        return "-";
+      }
+
+      const date =
+        new Date(value);
+
+      if (
+        Number.isNaN(date.getTime())
+      ) {
+        return String(value);
+      }
+
+      return date.toLocaleString();
+
+    }
+
+
+    function formatUptime(value) {
+
+      if (
+        value === null ||
+        value === undefined
+      ) {
+        return "-";
+      }
+
+      if (
+        typeof value === "string"
+      ) {
+        return value;
+      }
+
+      const seconds =
+        Math.floor(
+          Number(value)
+        );
+
+      if (
+        !Number.isFinite(seconds)
+      ) {
+        return "-";
+      }
+
+      const days =
+        Math.floor(
+          seconds / 86400
+        );
+
+      const hours =
+        Math.floor(
+          (seconds % 86400) / 3600
+        );
+
+      const minutes =
+        Math.floor(
+          (seconds % 3600) / 60
+        );
+
+      const secs =
+        seconds % 60;
+
+      let result = "";
+
+      if (days) {
+        result += `${days}d `;
+      }
+
+      if (hours) {
+        result += `${hours}h `;
+      }
+
+      if (minutes) {
+        result += `${minutes}m `;
+      }
+
+      result += `${secs}s`;
+
+      return result.trim();
+
+    }
+
+
+    // ---------------------------------
+    // AUTO REFRESH
+    // ---------------------------------
+
+    setInterval(() => {
+
+      const username =
+        $("username").value.trim();
+
+      if (!username) return;
+
+      loadDetails();
+      loadStats();
+      loadSettings();
+
+    }, 30000);
+
+
+    // ---------------------------------
+    // PAGE START
+    // ---------------------------------
+
+    document.addEventListener(
+      "DOMContentLoaded",
+      () => {
+
+        const savedUsername =
+          localStorage.getItem(
+            "dimuwa_username"
+          );
+
+        if (savedUsername) {
+
+          $("username").value =
+            savedUsername;
+
+          currentUsername =
+            savedUsername;
+
+          loadAll();
+
         }
-    }
 
-    function logoutBot() {
+      }
+    );
 
-        alert(
-            "Dashboard logout is not configured as a separate account system in this version. Use UNLINK BOT to remove the WhatsApp session."
-        );
-    }
+  </script>
 
-    function showBotDetails() {
-
-        alert(
-            "DIMUWA MINI BOT\n\n" +
-            "Version: 3.1\n" +
-            "WhatsApp: Baileys\n" +
-            "Pairing: QR + Pair Code\n" +
-            "Creator: Dimuth Sathsara"
-        );
-    }
-
-    async function updateStats() {
-
-        const started = Math.floor(
-            (Date.now() - startTime) / 1000
-        );
-
-        const hours = String(
-            Math.floor(started / 3600)
-        ).padStart(2, "0");
-
-        const minutes = String(
-            Math.floor((started % 3600) / 60)
-        ).padStart(2, "0");
-
-        const seconds = String(
-            started % 60
-        ).padStart(2, "0");
-
-        document.getElementById("uptime").innerText =
-            `${hours}:${minutes}:${seconds}`;
-
-        const startPing = performance.now();
-
-        try {
-
-            const response = await fetch(
-                `/stats?user=${encodeURIComponent(adminUsername)}&t=${Date.now()}`
-            );
-
-            const data = await response.json();
-
-            const latency = Math.round(
-                performance.now() - startPing
-            );
-
-            document.getElementById("latency").innerText =
-                `${latency} ms`;
-
-            document.getElementById("active-bots").innerText =
-                data.activeBots ?? 0;
-
-            document.getElementById("server-status").innerText =
-                "ACTIVE";
-
-        } catch (error) {
-
-            document.getElementById("server-status").innerText =
-                "OFFLINE";
-
-            document.getElementById("latency").innerText =
-                "-- ms";
-        }
-    }
-
-    setInterval(updateStats, 5000);
-    updateStats();
-
-</script></body>
+</body>
 </html>
