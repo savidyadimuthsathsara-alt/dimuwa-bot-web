@@ -1,7 +1,7 @@
 {
   "name": "dimuwa-mini-bot",
-  "version": "4.0.0",
-  "description": "DIMUWA WhatsApp Mini Bot with Railway-ready dashboard",
+  "version": "5.0.0",
+  "description": "DIMUWA MINI BOT - Railway Ready WhatsApp Bot",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -11,11 +11,9 @@
   },
   "dependencies": {
     "@whiskeysockets/baileys": "6.7.24",
-    "axios": "^1.7.9",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "pino": "^9.6.0",
-    "qrcode": "^1.5.4",
-    "yt-dlp-exec": "^1.0.2"
+    "qrcode": "^1.5.4"
   }
 }
