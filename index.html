@@ -2,666 +2,290 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0, maximum-scale=1.0"
-  >
-
-  <meta name="theme-color" content="#0b0b0f">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <title>DIMUWA MINI BOT</title>
 
   <style>
     * {
-      box-sizing: border-box;
       margin: 0;
       padding: 0;
-    }
-
-    html {
-      scroll-behavior: smooth;
+      box-sizing: border-box;
+      font-family: Arial, Helvetica, sans-serif;
     }
 
     body {
       min-height: 100vh;
-      font-family:
-        Inter,
-        Arial,
-        Helvetica,
-        sans-serif;
       background:
-        radial-gradient(
-          circle at top left,
-          rgba(120, 60, 255, 0.18),
-          transparent 35%
-        ),
-        radial-gradient(
-          circle at top right,
-          rgba(0, 200, 255, 0.12),
-          transparent 35%
-        ),
-        #08080c;
-      color: #ffffff;
-    }
-
-    button,
-    input {
-      font: inherit;
-    }
-
-    button {
-      cursor: pointer;
+        radial-gradient(circle at top left, #183b63 0%, transparent 35%),
+        radial-gradient(circle at bottom right, #35105c 0%, transparent 35%),
+        #050914;
+      color: white;
+      padding: 20px;
     }
 
     .container {
-      width: min(1180px, calc(100% - 30px));
+      width: 100%;
+      max-width: 1100px;
       margin: auto;
     }
 
-    /* =========================
-       HEADER
-    ========================== */
-
-    header {
-      position: sticky;
-      top: 0;
-      z-index: 1000;
-      backdrop-filter: blur(18px);
-      background: rgba(8, 8, 12, 0.82);
-      border-bottom: 1px solid rgba(255,255,255,0.08);
+    .header {
+      text-align: center;
+      padding: 25px 15px;
+      margin-bottom: 20px;
+      border-radius: 22px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      backdrop-filter: blur(15px);
+      box-shadow: 0 15px 50px rgba(0,0,0,0.35);
     }
 
-    .nav {
-      min-height: 72px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 15px;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .brand img {
-      width: 44px;
-      height: 44px;
-      border-radius: 14px;
+    .logo {
+      width: 110px;
+      height: 110px;
       object-fit: cover;
-      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 50%;
+      border: 3px solid #00eaff;
+      box-shadow: 0 0 30px rgba(0,234,255,0.45);
+      margin-bottom: 15px;
     }
 
-    .brand-title {
-      font-size: 18px;
+    .title {
+      font-size: 32px;
       font-weight: 900;
-      letter-spacing: 0.5px;
+      letter-spacing: 1px;
     }
 
-    .brand-sub {
-      font-size: 11px;
-      color: #9b9ba8;
-      margin-top: 2px;
+    .subtitle {
+      color: #aab8d0;
+      margin-top: 7px;
+      font-size: 14px;
     }
 
-    .online-badge {
-      display: flex;
+    .online {
+      display: inline-flex;
       align-items: center;
       gap: 7px;
-      padding: 8px 12px;
-      border-radius: 999px;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.08);
-      font-size: 12px;
-      color: #aaa;
+      margin-top: 15px;
+      padding: 8px 15px;
+      border-radius: 30px;
+      background: rgba(0,255,120,0.12);
+      border: 1px solid rgba(0,255,120,0.35);
+      color: #00ff78;
+      font-weight: bold;
+      font-size: 13px;
     }
 
     .dot {
-      width: 8px;
-      height: 8px;
+      width: 9px;
+      height: 9px;
       border-radius: 50%;
-      background: #777;
-      box-shadow: 0 0 10px rgba(255,255,255,0.1);
+      background: #00ff78;
+      box-shadow: 0 0 12px #00ff78;
     }
 
-    .dot.online {
-      background: #31e981;
-      box-shadow: 0 0 14px rgba(49,233,129,0.8);
+    .info {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+      margin-bottom: 20px;
     }
 
-    /* =========================
-       HERO
-    ========================== */
-
-    .hero {
-      padding: 45px 0 25px;
+    .info-card {
+      padding: 20px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.055);
+      border: 1px solid rgba(255,255,255,0.1);
+      text-align: center;
     }
 
-    .hero-card {
-      position: relative;
-      overflow: hidden;
-      padding: 32px;
-      border-radius: 28px;
-      background:
-        linear-gradient(
-          135deg,
-          rgba(110,70,255,0.18),
-          rgba(0,190,255,0.08)
-        ),
-        rgba(255,255,255,0.035);
-      border: 1px solid rgba(255,255,255,0.09);
-      box-shadow: 0 25px 80px rgba(0,0,0,0.35);
+    .info-card .icon {
+      font-size: 27px;
+      margin-bottom: 8px;
     }
 
-    .hero-card::before {
-      content: "";
-      position: absolute;
-      width: 240px;
-      height: 240px;
-      right: -100px;
-      top: -100px;
-      border-radius: 50%;
-      background: rgba(100,80,255,0.12);
-      filter: blur(10px);
+    .info-card h3 {
+      font-size: 13px;
+      color: #91a2bf;
+      margin-bottom: 7px;
+      text-transform: uppercase;
     }
 
-    .hero h1 {
-      position: relative;
-      font-size: clamp(30px, 6vw, 58px);
-      line-height: 1;
-      font-weight: 950;
-      letter-spacing: -2px;
-    }
-
-    .hero h1 span {
-      background: linear-gradient(
-        90deg,
-        #ffffff,
-        #9d8cff,
-        #55dfff
-      );
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .hero p {
-      position: relative;
-      margin-top: 14px;
-      color: #a6a6b4;
-      font-size: 14px;
-      max-width: 650px;
-      line-height: 1.7;
-    }
-
-    /* =========================
-       MAIN GRID
-    ========================== */
-
-    main {
-      padding-bottom: 50px;
-    }
-
-    .section {
-      margin-top: 22px;
+    .info-card p {
+      font-size: 15px;
+      font-weight: bold;
     }
 
     .section-title {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      margin-bottom: 12px;
+      margin: 25px 0 15px;
+      font-size: 20px;
+      font-weight: 800;
     }
 
-    .section-title h2 {
-      font-size: 17px;
-      font-weight: 850;
-    }
-
-    .section-title span {
-      color: #777783;
-      font-size: 11px;
-    }
-
-    .grid {
+    .menu {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 16px;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
     }
 
     .card {
-      background: rgba(255,255,255,0.035);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 22px;
-      padding: 20px;
-      box-shadow: 0 14px 45px rgba(0,0,0,0.18);
+      position: relative;
+      overflow: hidden;
+      padding: 22px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.055);
+      border: 1px solid rgba(255,255,255,0.1);
+      transition: 0.25s;
     }
 
-    .card h3 {
-      font-size: 15px;
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(0,234,255,0.5);
+      box-shadow: 0 10px 35px rgba(0,234,255,0.1);
+    }
+
+    .card-number {
+      position: absolute;
+      top: 15px;
+      right: 18px;
+      color: #51617a;
+      font-size: 22px;
+      font-weight: 900;
+    }
+
+    .card-icon {
+      font-size: 35px;
+      margin-bottom: 10px;
+    }
+
+    .card h2 {
+      font-size: 18px;
       margin-bottom: 7px;
     }
 
-    .card-description {
-      color: #8e8e9b;
-      font-size: 12px;
-      line-height: 1.6;
-      margin-bottom: 16px;
+    .card p {
+      color: #91a2bf;
+      font-size: 13px;
+      line-height: 1.5;
     }
-
-    /* =========================
-       FORM
-    ========================== */
-
-    .input-group {
-      margin-bottom: 12px;
-    }
-
-    .input-group label {
-      display: block;
-      color: #9696a3;
-      font-size: 11px;
-      margin-bottom: 7px;
-    }
-
-    input {
-      width: 100%;
-      border: 1px solid rgba(255,255,255,0.09);
-      background: rgba(0,0,0,0.25);
-      color: #fff;
-      border-radius: 13px;
-      padding: 13px 14px;
-      outline: none;
-      transition: 0.2s;
-    }
-
-    input:focus {
-      border-color: rgba(125,100,255,0.65);
-      box-shadow: 0 0 0 3px rgba(125,100,255,0.08);
-    }
-
-    /* =========================
-       BUTTONS
-    ========================== */
-
-    .button-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 9px;
-    }
-
-    .btn {
-      border: 0;
-      border-radius: 13px;
-      padding: 12px 15px;
-      color: white;
-      background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.08);
-      transition:
-        transform 0.15s,
-        background 0.15s,
-        border-color 0.15s;
-      font-size: 12px;
-      font-weight: 800;
-    }
-
-    .btn:hover {
-      transform: translateY(-1px);
-      background: rgba(255,255,255,0.13);
-    }
-
-    .btn.primary {
-      background: linear-gradient(
-        135deg,
-        #694cff,
-        #3a8cff
-      );
-      border-color: transparent;
-    }
-
-    .btn.success {
-      background: rgba(32,210,120,0.13);
-      border-color: rgba(32,210,120,0.25);
-    }
-
-    .btn.danger {
-      background: rgba(255,60,85,0.12);
-      border-color: rgba(255,60,85,0.22);
-    }
-
-    .btn.warning {
-      background: rgba(255,190,50,0.12);
-      border-color: rgba(255,190,50,0.22);
-    }
-
-    .btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    /* =========================
-       PAIRING
-    ========================== */
-
-    .pairing-box {
-      margin-top: 15px;
-      min-height: 80px;
-      padding: 15px;
-      border-radius: 16px;
-      background: rgba(0,0,0,0.22);
-      border: 1px dashed rgba(255,255,255,0.1);
-    }
-
-    .pairing-code {
-      font-size: 26px;
-      letter-spacing: 5px;
-      font-weight: 900;
-      text-align: center;
-      padding: 8px;
-      color: #a995ff;
-    }
-
-    .qr-box {
-      display: none;
-      margin-top: 15px;
-      text-align: center;
-    }
-
-    .qr-box img {
-      width: min(260px, 100%);
-      background: white;
-      padding: 12px;
-      border-radius: 18px;
-    }
-
-    .empty {
-      color: #777783;
-      font-size: 12px;
-      text-align: center;
-      padding: 15px;
-    }
-
-    /* =========================
-       STATS
-    ========================== */
-
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 12px;
-    }
-
-    .stat {
-      padding: 18px;
-      border-radius: 18px;
-      background: rgba(255,255,255,0.035);
-      border: 1px solid rgba(255,255,255,0.07);
-    }
-
-    .stat-label {
-      font-size: 10px;
-      color: #777783;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-    }
-
-    .stat-value {
-      font-size: 24px;
-      font-weight: 900;
-      margin-top: 7px;
-    }
-
-    /* =========================
-       DETAILS
-    ========================== */
-
-    .details {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 9px;
-    }
-
-    .detail {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 15px;
-      padding: 12px 14px;
-      border-radius: 13px;
-      background: rgba(255,255,255,0.025);
-      border: 1px solid rgba(255,255,255,0.055);
-    }
-
-    .detail span:first-child {
-      color: #83838f;
-      font-size: 11px;
-    }
-
-    .detail span:last-child {
-      color: #fff;
-      font-size: 11px;
-      font-weight: 800;
-      text-align: right;
-      word-break: break-word;
-    }
-
-    /* =========================
-       COMMANDS
-    ========================== */
 
     .commands {
+      margin-top: 20px;
+      padding: 22px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.055);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .commands h2 {
+      font-size: 18px;
+      margin-bottom: 15px;
+    }
+
+    .command-list {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(3, 1fr);
       gap: 10px;
     }
 
     .command {
-      padding: 14px;
-      border-radius: 15px;
-      background: rgba(255,255,255,0.025);
-      border: 1px solid rgba(255,255,255,0.06);
-    }
-
-    .command code {
-      display: inline-block;
-      padding: 5px 8px;
-      border-radius: 8px;
-      background: rgba(120,90,255,0.13);
-      color: #b8a9ff;
-      font-size: 11px;
-      margin-bottom: 7px;
-    }
-
-    .command p {
-      color: #858591;
-      font-size: 11px;
-      line-height: 1.5;
-    }
-
-    /* =========================
-       SETTINGS INFO
-    ========================== */
-
-    .settings-list {
-      display: grid;
-      gap: 8px;
-    }
-
-    .setting-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 11px 13px;
+      padding: 12px;
       border-radius: 12px;
-      background: rgba(255,255,255,0.025);
+      background: rgba(0,0,0,0.2);
+      color: #c8d4e8;
+      font-family: monospace;
+      font-size: 13px;
     }
 
-    .setting-name {
-      font-size: 11px;
-      color: #8e8e99;
-    }
-
-    .setting-value {
-      font-size: 11px;
-      font-weight: 850;
-      color: #fff;
-    }
-
-    /* =========================
-       FOOTER
-    ========================== */
-
-    footer {
+    .channel {
+      margin-top: 20px;
       text-align: center;
-      padding: 28px 15px 40px;
-      color: #62626c;
-      font-size: 11px;
-    }
-
-    footer strong {
-      color: #9999a5;
-    }
-
-    /* =========================
-       TOAST
-    ========================== */
-
-    #toast {
-      position: fixed;
-      left: 50%;
-      bottom: 22px;
-      z-index: 5000;
-      transform: translate(-50%, 20px);
-      min-width: 220px;
-      max-width: calc(100% - 30px);
-      padding: 13px 17px;
-      border-radius: 14px;
-      background: rgba(22,22,28,0.95);
+      padding: 25px;
+      border-radius: 20px;
+      background: linear-gradient(
+        135deg,
+        rgba(0,234,255,0.08),
+        rgba(170,0,255,0.08)
+      );
       border: 1px solid rgba(255,255,255,0.1);
-      box-shadow: 0 20px 50px rgba(0,0,0,0.4);
-      color: #fff;
-      font-size: 12px;
+    }
+
+    .channel h2 {
+      margin-bottom: 8px;
+    }
+
+    .channel p {
+      color: #91a2bf;
+      font-size: 13px;
+      margin-bottom: 17px;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 12px 22px;
+      border-radius: 12px;
+      text-decoration: none;
+      color: white;
+      font-weight: bold;
+      background: linear-gradient(135deg, #00bcd4, #7b2cff);
+      box-shadow: 0 8px 25px rgba(0,0,0,0.25);
+      transition: 0.2s;
+    }
+
+    .btn:hover {
+      transform: scale(1.03);
+    }
+
+    .footer {
       text-align: center;
-      opacity: 0;
-      pointer-events: none;
-      transition: 0.25s;
+      padding: 25px 10px 10px;
+      color: #687891;
+      font-size: 12px;
     }
 
-    #toast.show {
-      opacity: 1;
-      transform: translate(-50%, 0);
+    .health {
+      margin-top: 10px;
+      font-size: 12px;
     }
 
-    #toast.success {
-      border-color: rgba(40,220,130,0.3);
-    }
-
-    #toast.error {
-      border-color: rgba(255,70,90,0.3);
-    }
-
-    /* =========================
-       LOADING
-    ========================== */
-
-    .loading {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-    }
-
-    .spinner {
-      width: 13px;
-      height: 13px;
-      border: 2px solid rgba(255,255,255,0.25);
-      border-top-color: white;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
-    }
-
-    /* =========================
-       RESPONSIVE
-    ========================== */
-
-    @media (max-width: 900px) {
-      .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      .commands {
-        grid-template-columns: repeat(2, 1fr);
-      }
+    #healthStatus {
+      color: #00ff78;
+      font-weight: bold;
     }
 
     @media (max-width: 700px) {
-      .container {
-        width: min(100% - 20px, 1180px);
+
+      body {
+        padding: 12px;
       }
 
-      .hero {
-        padding-top: 25px;
+      .title {
+        font-size: 25px;
       }
 
-      .hero-card {
-        padding: 23px;
-        border-radius: 22px;
-      }
-
-      .grid,
-      .details {
+      .info {
         grid-template-columns: 1fr;
       }
 
-      .commands {
+      .menu {
         grid-template-columns: 1fr;
       }
 
-      .nav {
-        min-height: 64px;
-      }
-
-      .brand-sub {
-        display: none;
-      }
-
-      .online-badge {
-        padding: 7px 9px;
-      }
-    }
-
-    @media (max-width: 450px) {
-      .stats-grid {
+      .command-list {
         grid-template-columns: 1fr 1fr;
       }
 
-      .stat {
-        padding: 14px;
+      .logo {
+        width: 90px;
+        height: 90px;
       }
+    }
 
-      .stat-value {
-        font-size: 20px;
-      }
+    @media (max-width: 420px) {
 
-      .button-row {
-        flex-direction: column;
-      }
-
-      .btn {
-        width: 100%;
-      }
-
-      .hero h1 {
-        font-size: 34px;
+      .command-list {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -669,1735 +293,239 @@
 
 <body>
 
-  <!-- =========================
-       HEADER
-  ========================== -->
+  <div class="container">
 
-  <header>
-    <div class="container nav">
+    <!-- HEADER -->
 
-      <div class="brand">
-        <img
-          src="https://files.catbox.moe/6gq4ub.jpeg"
-          alt="DIMUWA"
-        >
+    <div class="header">
 
-        <div>
-          <div class="brand-title">
-            DIMUWA MINI BOT
-          </div>
+      <img
+        class="logo"
+        src="https://files.catbox.moe/6gq4ub.jpeg"
+        alt="DIMUWA MINI BOT"
+      >
 
-          <div class="brand-sub">
-            WhatsApp Bot Dashboard
-          </div>
-        </div>
+      <div class="title">
+        🤖 DIMUWA MINI BOT
       </div>
 
-      <div class="online-badge">
-        <span id="statusDot" class="dot"></span>
-        <span id="statusText">Checking...</span>
+      <div class="subtitle">
+        The Mini Whatsapp Bot Experience
+      </div>
+
+      <div class="online">
+        <span class="dot"></span>
+        BOT ONLINE
       </div>
 
     </div>
-  </header>
 
 
-  <!-- =========================
-       HERO
-  ========================== -->
+    <!-- BOT INFO -->
 
-  <section class="hero">
-    <div class="container">
+    <div class="info">
 
-      <div class="hero-card">
+      <div class="info-card">
+        <div class="icon">👨‍💻</div>
+        <h3>Creator</h3>
+        <p>Dimuth Sathsara</p>
+      </div>
 
-        <h1>
-          <span>DIMUWA</span>
-          MINI BOT
-        </h1>
+      <div class="info-card">
+        <div class="icon">📱</div>
+        <h3>Contact</h3>
+        <p>+94740325746</p>
+      </div>
 
+      <div class="info-card">
+        <div class="icon">⚙️</div>
+        <h3>Prefix</h3>
+        <p>[ . ]</p>
+      </div>
+
+    </div>
+
+
+    <!-- MENU -->
+
+    <div class="section-title">
+      📁 MAIN MENU
+    </div>
+
+    <div class="menu">
+
+      <div class="card">
+        <div class="card-number">01</div>
+        <div class="card-icon">📥</div>
+        <h2>DOWNLOAD</h2>
         <p>
-          Manage your WhatsApp bot, pairing, QR connection,
-          statistics, commands and system controls from one dashboard.
+          TikTok, Facebook and YouTube downloader commands.
         </p>
+      </div>
+
+      <div class="card">
+        <div class="card-number">02</div>
+        <div class="card-icon">⚙️</div>
+        <h2>SETTINGS</h2>
+        <p>
+          Bot settings and configuration commands.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-number">03</div>
+        <div class="card-icon">👑</div>
+        <h2>OWNER COMMANDS</h2>
+        <p>
+          Special commands available for the bot owner.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-number">04</div>
+        <div class="card-icon">🛠️</div>
+        <h2>UTILITY</h2>
+        <p>
+          Utility commands including .vv and .save.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-number">05</div>
+        <div class="card-icon">🎮</div>
+        <h2>FUN COMMANDS</h2>
+        <p>
+          Fun and entertainment commands.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-number">06</div>
+        <div class="card-icon">👥</div>
+        <h2>GROUP COMMANDS</h2>
+        <p>
+          Group management commands including .tagall.
+        </p>
+      </div>
+
+    </div>
+
+
+    <!-- COMMANDS -->
+
+    <div class="commands">
+
+      <h2>
+        ⚡ QUICK COMMANDS
+      </h2>
+
+      <div class="command-list">
+
+        <div class="command">
+          .menu
+        </div>
+
+        <div class="command">
+          .ping
+        </div>
+
+        <div class="command">
+          .vv
+        </div>
+
+        <div class="command">
+          .save
+        </div>
+
+        <div class="command">
+          .settings
+        </div>
+
+        <div class="command">
+          .tagall
+        </div>
 
       </div>
 
     </div>
-  </section>
 
 
-  <main class="container">
+    <!-- WHATSAPP CHANNEL -->
 
-    <!-- =========================
-         CONNECTION
-    ========================== -->
+    <div class="channel">
 
-    <section class="section">
+      <h2>
+        📢 DIMUWA WHATSAPP CHANNEL
+      </h2>
 
-      <div class="section-title">
-        <h2>🔐 Bot Connection</h2>
-        <span>Pair your WhatsApp account</span>
-      </div>
+      <p>
+        Follow our official WhatsApp channel for updates,
+        new features and announcements.
+      </p>
 
-      <div class="grid">
+      <a
+        class="btn"
+        href="https://whatsapp.com/channel/0029VbDZDmx4inoi10evlP1M"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        📢 FOLLOW CHANNEL
+      </a>
 
-        <!-- PAIRING CARD -->
+    </div>
 
-        <div class="card">
 
-          <h3>📱 Pairing Code</h3>
+    <!-- HEALTH -->
 
-          <p class="card-description">
-            Enter a bot username and WhatsApp number to request
-            a WhatsApp pairing code.
-          </p>
+    <div class="health">
+      System status:
+      <span id="healthStatus">Checking...</span>
+    </div>
 
-          <div class="input-group">
-            <label>BOT USERNAME</label>
 
-            <input
-              id="username"
-              type="text"
-              placeholder="example"
-              autocomplete="off"
-            >
-          </div>
+    <!-- FOOTER -->
 
-          <div class="input-group">
-            <label>WHATSAPP NUMBER</label>
+    <div class="footer">
 
-            <input
-              id="phone"
-              type="text"
-              placeholder="947XXXXXXXX"
-              autocomplete="off"
-            >
-          </div>
+      © 2026 DIMUWA BOT.<br>
+      Created by DIMUTH SATHSARA
 
-          <div class="button-row">
+    </div>
 
-            <button
-              class="btn primary"
-              id="pairBtn"
-              onclick="getPairingCode()"
-            >
-              🔐 GET PAIRING CODE
-            </button>
+  </div>
 
-            <button
-              class="btn"
-              onclick="copyPairingCode()"
-            >
-              📋 COPY CODE
-            </button>
-
-          </div>
-
-          <div class="pairing-box">
-
-            <div
-              id="pairingResult"
-              class="empty"
-            >
-              Pairing code will appear here.
-            </div>
-
-          </div>
-
-        </div>
-
-
-        <!-- QR CARD -->
-
-        <div class="card">
-
-          <h3>📷 QR Connection</h3>
-
-          <p class="card-description">
-            Generate a QR code and scan it using WhatsApp
-            Linked Devices.
-          </p>
-
-          <div class="button-row">
-
-            <button
-              class="btn primary"
-              id="qrBtn"
-              onclick="getQR()"
-            >
-              📷 GET QR CODE
-            </button>
-
-            <button
-              class="btn"
-              onclick="hideQR()"
-            >
-              ✕ HIDE QR
-            </button>
-
-          </div>
-
-          <div
-            id="qrBox"
-            class="qr-box"
-          >
-
-            <img
-              id="qrImage"
-              src=""
-              alt="WhatsApp QR"
-            >
-
-            <p
-              id="qrStatus"
-              class="empty"
-            >
-              Waiting for QR...
-            </p>
-
-          </div>
-
-        </div>
-
-      </div>
-
-    </section>
-
-
-    <!-- =========================
-         BOT DETAILS
-    ========================== -->
-
-    <section class="section">
-
-      <div class="section-title">
-
-        <h2>🤖 Bot Details</h2>
-
-        <button
-          class="btn"
-          onclick="loadDetails()"
-        >
-          🔄 Refresh
-        </button>
-
-      </div>
-
-      <div class="card">
-
-        <div class="details">
-
-          <div class="detail">
-            <span>Bot Status</span>
-            <span id="detailStatus">-</span>
-          </div>
-
-          <div class="detail">
-            <span>Username</span>
-            <span id="detailUsername">-</span>
-          </div>
-
-          <div class="detail">
-            <span>Phone</span>
-            <span id="detailPhone">-</span>
-          </div>
-
-          <div class="detail">
-            <span>Bot Name</span>
-            <span id="detailName">-</span>
-          </div>
-
-          <div class="detail">
-            <span>WhatsApp ID</span>
-            <span id="detailJid">-</span>
-          </div>
-
-          <div class="detail">
-            <span>Connected Since</span>
-            <span id="detailSince">-</span>
-          </div>
-
-        </div>
-
-      </div>
-
-    </section>
-
-
-    <!-- =========================
-         STATISTICS
-    ========================== -->
-
-    <section class="section">
-
-      <div class="section-title">
-
-        <h2>📊 Bot Statistics</h2>
-
-        <button
-          class="btn"
-          onclick="loadStats()"
-        >
-          🔄 Refresh
-        </button>
-
-      </div>
-
-      <div class="stats-grid">
-
-        <div class="stat">
-          <div class="stat-label">
-            Messages
-          </div>
-
-          <div
-            class="stat-value"
-            id="statMessages"
-          >
-            0
-          </div>
-        </div>
-
-        <div class="stat">
-          <div class="stat-label">
-            Commands
-          </div>
-
-          <div
-            class="stat-value"
-            id="statCommands"
-          >
-            0
-          </div>
-        </div>
-
-        <div class="stat">
-          <div class="stat-label">
-            Downloads
-          </div>
-
-          <div
-            class="stat-value"
-            id="statDownloads"
-          >
-            0
-          </div>
-        </div>
-
-        <div class="stat">
-          <div class="stat-label">
-            Uptime
-          </div>
-
-          <div
-            class="stat-value"
-            id="statUptime"
-          >
-            -
-          </div>
-        </div>
-
-      </div>
-
-    </section>
-
-
-    <!-- =========================
-         SYSTEM CONTROLS
-    ========================== -->
-
-    <section class="section">
-
-      <div class="section-title">
-        <h2>⚙️ System Controls</h2>
-        <span>Account management</span>
-      </div>
-
-      <div class="card">
-
-        <div class="button-row">
-
-          <button
-            class="btn success"
-            onclick="loadAll()"
-          >
-            🔄 REFRESH BOT
-          </button>
-
-          <button
-            class="btn danger"
-            onclick="logoutBot()"
-          >
-            🚪 LOGOUT
-          </button>
-
-          <button
-            class="btn warning"
-            onclick="unlinkBot()"
-          >
-            🔗 UNLINK
-          </button>
-
-        </div>
-
-        <p
-          class="card-description"
-          style="margin-top:14px;margin-bottom:0;"
-        >
-          Logout and unlink actions affect the selected bot
-          account. Use them only when you want to disconnect
-          the WhatsApp session.
-        </p>
-
-      </div>
-
-    </section>
-
-
-    <!-- =========================
-         SETTINGS
-    ========================== -->
-
-    <section class="section">
-
-      <div class="section-title">
-
-        <h2>⚙️ Current Settings</h2>
-
-        <button
-          class="btn"
-          onclick="loadSettings()"
-        >
-          🔄 Refresh
-        </button>
-
-      </div>
-
-      <div class="card">
-
-        <div class="settings-list">
-
-          <div class="setting-row">
-            <span class="setting-name">
-              Always Online
-            </span>
-
-            <span
-              class="setting-value"
-              id="setAlwaysOnline"
-            >
-              -
-            </span>
-          </div>
-
-          <div class="setting-row">
-            <span class="setting-name">
-              Auto Read
-            </span>
-
-            <span
-              class="setting-value"
-              id="setAutoRead"
-            >
-              -
-            </span>
-          </div>
-
-          <div class="setting-row">
-            <span class="setting-name">
-              Bot Mode
-            </span>
-
-            <span
-              class="setting-value"
-              id="setBotMode"
-            >
-              -
-            </span>
-          </div>
-
-          <div class="setting-row">
-            <span class="setting-name">
-              Status Read
-            </span>
-
-            <span
-              class="setting-value"
-              id="setStatusRead"
-            >
-              -
-            </span>
-          </div>
-
-          <div class="setting-row">
-            <span class="setting-name">
-              Status React
-            </span>
-
-            <span
-              class="setting-value"
-              id="setStatusReact"
-            >
-              -
-            </span>
-          </div>
-
-          <div class="setting-row">
-            <span class="setting-name">
-              Composing
-            </span>
-
-            <span
-              class="setting-value"
-              id="setComposing"
-            >
-              -
-            </span>
-          </div>
-
-          <div class="setting-row">
-            <span class="setting-name">
-              Anti-Delete
-            </span>
-
-            <span
-              class="setting-value"
-              id="setAntiDelete"
-            >
-              -
-            </span>
-          </div>
-
-          <div class="setting-row">
-            <span class="setting-name">
-              Anti-Delete Target
-            </span>
-
-            <span
-              class="setting-value"
-              id="setAntiDelTarget"
-            >
-              -
-            </span>
-          </div>
-
-          <div class="setting-row">
-            <span class="setting-name">
-              View Once Target
-            </span>
-
-            <span
-              class="setting-value"
-              id="setVvTarget"
-            >
-              -
-            </span>
-          </div>
-
-          <div class="setting-row">
-            <span class="setting-name">
-              Save Target
-            </span>
-
-            <span
-              class="setting-value"
-              id="setSaveTarget"
-            >
-              -
-            </span>
-          </div>
-
-          <div class="setting-row">
-            <span class="setting-name">
-              Bot Power
-            </span>
-
-            <span
-              class="setting-value"
-              id="setBotPower"
-            >
-              -
-            </span>
-          </div>
-
-        </div>
-
-        <p
-          class="card-description"
-          style="margin-top:15px;margin-bottom:0;"
-        >
-          Settings are controlled from WhatsApp using
-          <strong>.settings</strong>.
-        </p>
-
-      </div>
-
-    </section>
-
-
-    <!-- =========================
-         COMMANDS
-    ========================== -->
-
-    <section class="section">
-
-      <div class="section-title">
-        <h2>📋 Bot Commands</h2>
-        <span>Available commands</span>
-      </div>
-
-      <div class="commands">
-
-        <div class="command">
-          <code>.menu</code>
-          <p>
-            Show the main bot menu.
-          </p>
-        </div>
-
-        <div class="command">
-          <code>.alive</code>
-          <p>
-            Check whether the bot is alive.
-          </p>
-        </div>
-
-        <div class="command">
-          <code>.status</code>
-          <p>
-            Show bot status and information.
-          </p>
-        </div>
-
-        <div class="command">
-          <code>.settings</code>
-          <p>
-            Open the settings menu and configure
-            bot features.
-          </p>
-        </div>
-
-        <div class="command">
-          <code>.vv</code>
-          <p>
-            Save/re-send View Once media according
-            to the selected target.
-          </p>
-        </div>
-
-        <div class="command">
-          <code>.save</code>
-          <p>
-            Save supported media such as image,
-            video, audio, document and sticker.
-          </p>
-        </div>
-
-        <div class="command">
-          <code>TikTok URL</code>
-          <p>
-            Download supported public TikTok videos.
-          </p>
-        </div>
-
-        <div class="command">
-          <code>YouTube URL</code>
-          <p>
-            Download supported YouTube media.
-          </p>
-        </div>
-
-        <div class="command">
-          <code>Facebook URL</code>
-          <p>
-            Download supported public Facebook media.
-          </p>
-        </div>
-
-      </div>
-
-    </section>
-
-
-    <!-- =========================
-         SETTINGS HELP
-    ========================== -->
-
-    <section class="section">
-
-      <div class="section-title">
-        <h2>🛠️ Settings Codes</h2>
-        <span>Quick reference</span>
-      </div>
-
-      <div class="card">
-
-        <div class="commands">
-
-          <div class="command">
-            <code>1.1 / 1.2</code>
-            <p>
-              Always Online ON / OFF
-            </p>
-          </div>
-
-          <div class="command">
-            <code>2.1 / 2.2</code>
-            <p>
-              Auto Read ON / OFF
-            </p>
-          </div>
-
-          <div class="command">
-            <code>3.1 / 3.2 / 3.3</code>
-            <p>
-              Public / Private / Inbox
-            </p>
-          </div>
-
-          <div class="command">
-            <code>4.1 / 4.2</code>
-            <p>
-              Status Read ON / OFF
-            </p>
-          </div>
-
-          <div class="command">
-            <code>5.1 / 5.2 / 5.3</code>
-            <p>
-              Green / Random / Off
-            </p>
-          </div>
-
-          <div class="command">
-            <code>7.1 / 7.2</code>
-            <p>
-              Composing ON / OFF
-            </p>
-          </div>
-
-          <div class="command">
-            <code>9.1 / 9.2</code>
-            <p>
-              Anti-Delete ON / OFF
-            </p>
-          </div>
-
-          <div class="command">
-            <code>10.1 / 10.2</code>
-            <p>
-              Anti-Delete Same Chat / My Inbox
-            </p>
-          </div>
-
-          <div class="command">
-            <code>11.1 / 11.2</code>
-            <p>
-              .vv Same Chat / My Inbox
-            </p>
-          </div>
-
-          <div class="command">
-            <code>12.1 / 12.2</code>
-            <p>
-              .save Same Chat / My Inbox
-            </p>
-          </div>
-
-          <div class="command">
-            <code>13.1 / 13.2</code>
-            <p>
-              Bot Power ON / OFF
-            </p>
-          </div>
-
-        </div>
-
-      </div>
-
-    </section>
-
-  </main>
-
-
-  <!-- =========================
-       FOOTER
-  ========================== -->
-
-  <footer>
-    © 2026 <strong>DIMUWA BOT</strong>.
-    Created by DIMUTH SATHSARA
-  </footer>
-
-
-  <!-- =========================
-       TOAST
-  ========================== -->
-
-  <div id="toast"></div>
-
-
-  <!-- =========================
-       JAVASCRIPT
-  ========================== -->
 
   <script>
 
-    /*
-      DIMUWA MINI BOT DASHBOARD
+    async function checkHealth() {
 
-      This dashboard talks to the API routes
-      provided by index.js.
-
-      No external JavaScript library is required.
-    */
-
-
-    // ---------------------------------
-    // GLOBAL STATE
-    // ---------------------------------
-
-    let currentUsername = "";
-
-    let lastPairingCode = "";
-
-
-    // ---------------------------------
-    // ELEMENT HELPER
-    // ---------------------------------
-
-    function $(id) {
-      return document.getElementById(id);
-    }
-
-
-    // ---------------------------------
-    // TOAST
-    // ---------------------------------
-
-    function toast(message, type = "") {
-
-      const box = $("toast");
-
-      box.textContent = message;
-
-      box.className = "";
-
-      box.classList.add("show");
-
-      if (type) {
-        box.classList.add(type);
-      }
-
-      clearTimeout(window.__toastTimer);
-
-      window.__toastTimer = setTimeout(() => {
-        box.classList.remove("show");
-      }, 3000);
-    }
-
-
-    // ---------------------------------
-    // API HELPER
-    // ---------------------------------
-
-    async function api(url, options = {}) {
-
-      const response = await fetch(url, {
-        ...options,
-        headers: {
-          "Content-Type": "application/json",
-          ...(options.headers || {})
-        }
-      });
-
-      let data = {};
-
-      try {
-        data = await response.json();
-      } catch {
-        data = {};
-      }
-
-      if (!response.ok) {
-
-        throw new Error(
-          data.error ||
-          data.message ||
-          `Request failed (${response.status})`
-        );
-
-      }
-
-      return data;
-    }
-
-
-    // ---------------------------------
-    // USERNAME
-    // ---------------------------------
-
-    function getUsername() {
-
-      const value = $("username").value.trim();
-
-      if (!value) {
-        toast("Enter bot username first.", "error");
-        return null;
-      }
-
-      currentUsername = value;
-
-      localStorage.setItem(
-        "dimuwa_username",
-        value
-      );
-
-      return value;
-    }
-
-
-    // ---------------------------------
-    // PHONE
-    // ---------------------------------
-
-    function getPhone() {
-
-      const value = $("phone").value
-        .trim()
-        .replace(/\s+/g, "");
-
-      if (!value) {
-        toast("Enter WhatsApp number first.", "error");
-        return null;
-      }
-
-      return value;
-    }
-
-
-    // ---------------------------------
-    // PAIRING CODE
-    // ---------------------------------
-
-    async function getPairingCode() {
-
-      const username = getUsername();
-
-      if (!username) return;
-
-      const phone = getPhone();
-
-      if (!phone) return;
-
-      const button = $("pairBtn");
-
-      button.disabled = true;
-
-      button.innerHTML =
-        `<span class="loading">
-          <span class="spinner"></span>
-          REQUESTING...
-        </span>`;
-
-      $("pairingResult").innerHTML =
-        `<div class="empty">
-          Requesting pairing code...
-        </div>`;
+      const status = document.getElementById("healthStatus");
 
       try {
 
-        const data = await api(
-          `/get-pairing-code?username=${encodeURIComponent(username)}&phone=${encodeURIComponent(phone)}`
-        );
+        const response = await fetch("/health");
 
-        const code =
-          data.code ||
-          data.pairingCode ||
-          data.pairing ||
-          "";
+        if (response.ok) {
 
-        lastPairingCode = code;
+          status.textContent = "ONLINE";
 
-        if (!code) {
+        } else {
 
-          $("pairingResult").innerHTML =
-            `<div class="empty">
-              ${escapeHtml(
-                data.message ||
-                "Pairing code was not returned."
-              )}
-            </div>`;
-
-          toast(
-            data.message ||
-            "Pairing code not available.",
-            "error"
-          );
-
-          return;
-        }
-
-        $("pairingResult").innerHTML =
-          `<div class="pairing-code">
-            ${escapeHtml(code)}
-          </div>
-          <div class="empty">
-            Enter this code in WhatsApp Linked Devices.
-          </div>`;
-
-        toast(
-          "Pairing code generated.",
-          "success"
-        );
-
-        loadAll();
-
-      } catch (error) {
-
-        $("pairingResult").innerHTML =
-          `<div class="empty">
-            ${escapeHtml(error.message)}
-          </div>`;
-
-        toast(
-          error.message,
-          "error"
-        );
-
-      } finally {
-
-        button.disabled = false;
-
-        button.textContent =
-          "🔐 GET PAIRING CODE";
-
-      }
-
-    }
-
-
-    // ---------------------------------
-    // COPY PAIRING CODE
-    // ---------------------------------
-
-    async function copyPairingCode() {
-
-      if (!lastPairingCode) {
-
-        toast(
-          "No pairing code available.",
-          "error"
-        );
-
-        return;
-      }
-
-      try {
-
-        await navigator.clipboard.writeText(
-          lastPairingCode
-        );
-
-        toast(
-          "Pairing code copied.",
-          "success"
-        );
-
-      } catch {
-
-        toast(
-          "Could not copy pairing code.",
-          "error"
-        );
-
-      }
-
-    }
-
-
-    // ---------------------------------
-    // QR CODE
-    // ---------------------------------
-
-    async function getQR() {
-
-      const username = getUsername();
-
-      if (!username) return;
-
-      const button = $("qrBtn");
-
-      button.disabled = true;
-
-      button.innerHTML =
-        `<span class="loading">
-          <span class="spinner"></span>
-          LOADING...
-        </span>`;
-
-      $("qrBox").style.display = "block";
-
-      $("qrStatus").textContent =
-        "Requesting QR code...";
-
-      try {
-
-        const data = await api(
-          `/qr?username=${encodeURIComponent(username)}`
-        );
-
-        const qr =
-          data.qr ||
-          data.qrCode ||
-          data.image ||
-          "";
-
-        if (!qr) {
-
-          $("qrStatus").textContent =
-            data.message ||
-            "QR code not available.";
-
-          toast(
-            data.message ||
-            "QR code not available.",
-            "error"
-          );
-
-          return;
-        }
-
-        $("qrImage").src =
-          qr.startsWith("data:")
-            ? qr
-            : `data:image/png;base64,${qr}`;
-
-        $("qrStatus").textContent =
-          "Scan this QR using WhatsApp.";
-
-        toast(
-          "QR code loaded.",
-          "success"
-        );
-
-      } catch (error) {
-
-        $("qrStatus").textContent =
-          error.message;
-
-        toast(
-          error.message,
-          "error"
-        );
-
-      } finally {
-
-        button.disabled = false;
-
-        button.textContent =
-          "📷 GET QR CODE";
-
-      }
-
-    }
-
-
-    // ---------------------------------
-    // HIDE QR
-    // ---------------------------------
-
-    function hideQR() {
-
-      $("qrBox").style.display = "none";
-
-      $("qrImage").src = "";
-
-    }
-
-
-    // ---------------------------------
-    // DETAILS
-    // ---------------------------------
-
-    async function loadDetails() {
-
-      const username =
-        $("username").value.trim() ||
-        localStorage.getItem(
-          "dimuwa_username"
-        );
-
-      if (!username) return;
-
-      try {
-
-        const data = await api(
-          `/details?username=${encodeURIComponent(username)}`
-        );
-
-        const bot =
-          data.bot ||
-          data;
-
-        $("detailStatus").textContent =
-          formatValue(
-            bot.status ||
-            bot.connection ||
-            bot.connected
-          );
-
-        $("detailUsername").textContent =
-          formatValue(
-            bot.username ||
-            username
-          );
-
-        $("detailPhone").textContent =
-          formatValue(
-            bot.phone ||
-            bot.number
-          );
-
-        $("detailName").textContent =
-          formatValue(
-            bot.name ||
-            bot.pushName ||
-            bot.botName
-          );
-
-        $("detailJid").textContent =
-          formatValue(
-            bot.jid ||
-            bot.id ||
-            bot.user
-          );
-
-        $("detailSince").textContent =
-          formatDate(
-            bot.connectedAt ||
-            bot.startedAt ||
-            bot.since
-          );
-
-        updateConnectionUI(
-          bot.connected === true ||
-          String(bot.status || "")
-            .toLowerCase()
-            === "connected" ||
-          String(bot.status || "")
-            .toLowerCase()
-            === "online"
-        );
-
-      } catch (error) {
-
-        updateConnectionUI(false);
-
-      }
-
-    }
-
-
-    // ---------------------------------
-    // STATISTICS
-    // ---------------------------------
-
-    async function loadStats() {
-
-      const username =
-        $("username").value.trim() ||
-        localStorage.getItem(
-          "dimuwa_username"
-        );
-
-      if (!username) return;
-
-      try {
-
-        const data = await api(
-          `/stats?username=${encodeURIComponent(username)}`
-        );
-
-        const stats =
-          data.stats ||
-          data;
-
-        $("statMessages").textContent =
-          formatNumber(
-            stats.messages ??
-            stats.messageCount ??
-            0
-          );
-
-        $("statCommands").textContent =
-          formatNumber(
-            stats.commands ??
-            stats.commandCount ??
-            0
-          );
-
-        $("statDownloads").textContent =
-          formatNumber(
-            stats.downloads ??
-            stats.downloadCount ??
-            0
-          );
-
-        $("statUptime").textContent =
-          formatUptime(
-            stats.uptime
-          );
-
-      } catch {
-
-        $("statMessages").textContent = "0";
-        $("statCommands").textContent = "0";
-        $("statDownloads").textContent = "0";
-        $("statUptime").textContent = "-";
-
-      }
-
-    }
-
-
-    // ---------------------------------
-    // SETTINGS
-    // ---------------------------------
-
-    async function loadSettings() {
-
-      const username =
-        $("username").value.trim() ||
-        localStorage.getItem(
-          "dimuwa_username"
-        );
-
-      if (!username) return;
-
-      try {
-
-        const data = await api(
-          `/settings?username=${encodeURIComponent(username)}`
-        );
-
-        const settings =
-          data.settings ||
-          data;
-
-        $("setAlwaysOnline").textContent =
-          formatValue(
-            settings.alwaysOnline
-          );
-
-        $("setAutoRead").textContent =
-          formatValue(
-            settings.autoRead
-          );
-
-        $("setBotMode").textContent =
-          formatValue(
-            settings.botMode
-          );
-
-        $("setStatusRead").textContent =
-          formatValue(
-            settings.statusRead
-          );
-
-        $("setStatusReact").textContent =
-          formatValue(
-            settings.statusReact
-          );
-
-        $("setComposing").textContent =
-          formatValue(
-            settings.composing
-          );
-
-        $("setAntiDelete").textContent =
-          formatValue(
-            settings.antiDelete
-          );
-
-        $("setAntiDelTarget").textContent =
-          formatValue(
-            settings.antiDelTarget
-          );
-
-        $("setVvTarget").textContent =
-          formatValue(
-            settings.vvTarget
-          );
-
-        $("setSaveTarget").textContent =
-          formatValue(
-            settings.saveTarget
-          );
-
-        $("setBotPower").textContent =
-          formatValue(
-            settings.botPower
-          );
-
-      } catch {
-
-        // Settings endpoint may not exist
-        // in older backend versions.
-        // WhatsApp .settings still controls
-        // the bot settings.
-
-      }
-
-    }
-
-
-    // ---------------------------------
-    // LOGOUT
-    // ---------------------------------
-
-    async function logoutBot() {
-
-      const username = getUsername();
-
-      if (!username) return;
-
-      const confirmed =
-        confirm(
-          `Logout bot "${username}"?`
-        );
-
-      if (!confirmed) return;
-
-      try {
-
-        const data = await api(
-          `/logout?username=${encodeURIComponent(username)}`,
-          {
-            method: "POST"
-          }
-        );
-
-        toast(
-          data.message ||
-          "Bot logged out.",
-          "success"
-        );
-
-        updateConnectionUI(false);
-
-        loadAll();
-
-      } catch (error) {
-
-        toast(
-          error.message,
-          "error"
-        );
-
-      }
-
-    }
-
-
-    // ---------------------------------
-    // UNLINK
-    // ---------------------------------
-
-    async function unlinkBot() {
-
-      const username = getUsername();
-
-      if (!username) return;
-
-      const confirmed =
-        confirm(
-          `Unlink WhatsApp session for "${username}"?`
-        );
-
-      if (!confirmed) return;
-
-      try {
-
-        const data = await api(
-          `/unlink?username=${encodeURIComponent(username)}`,
-          {
-            method: "POST"
-          }
-        );
-
-        toast(
-          data.message ||
-          "Bot unlinked.",
-          "success"
-        );
-
-        updateConnectionUI(false);
-
-        loadAll();
-
-      } catch (error) {
-
-        toast(
-          error.message,
-          "error"
-        );
-
-      }
-
-    }
-
-
-    // ---------------------------------
-    // CONNECTION UI
-    // ---------------------------------
-
-    function updateConnectionUI(online) {
-
-      const dot =
-        $("statusDot");
-
-      const text =
-        $("statusText");
-
-      if (online) {
-
-        dot.classList.add("online");
-
-        text.textContent =
-          "BOT ONLINE";
-
-      } else {
-
-        dot.classList.remove("online");
-
-        text.textContent =
-          "BOT OFFLINE";
-
-      }
-
-    }
-
-
-    // ---------------------------------
-    // LOAD EVERYTHING
-    // ---------------------------------
-
-    async function loadAll() {
-
-      const username =
-        $("username").value.trim();
-
-      if (!username) return;
-
-      currentUsername =
-        username;
-
-      localStorage.setItem(
-        "dimuwa_username",
-        username
-      );
-
-      await Promise.allSettled([
-        loadDetails(),
-        loadStats(),
-        loadSettings()
-      ]);
-
-    }
-
-
-    // ---------------------------------
-    // HELPERS
-    // ---------------------------------
-
-    function escapeHtml(value) {
-
-      if (
-        value === null ||
-        value === undefined
-      ) {
-        return "";
-      }
-
-      return String(value)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-
-    }
-
-
-    function formatValue(value) {
-
-      if (
-        value === null ||
-        value === undefined ||
-        value === ""
-      ) {
-        return "-";
-      }
-
-      if (typeof value === "boolean") {
-        return value ? "ON" : "OFF";
-      }
-
-      return String(value)
-        .replace(/_/g, " ")
-        .toUpperCase();
-
-    }
-
-
-    function formatNumber(value) {
-
-      const number =
-        Number(value);
-
-      if (
-        Number.isNaN(number)
-      ) {
-        return "0";
-      }
-
-      return number.toLocaleString();
-
-    }
-
-
-    function formatDate(value) {
-
-      if (!value) {
-        return "-";
-      }
-
-      const date =
-        new Date(value);
-
-      if (
-        Number.isNaN(date.getTime())
-      ) {
-        return String(value);
-      }
-
-      return date.toLocaleString();
-
-    }
-
-
-    function formatUptime(value) {
-
-      if (
-        value === null ||
-        value === undefined
-      ) {
-        return "-";
-      }
-
-      if (
-        typeof value === "string"
-      ) {
-        return value;
-      }
-
-      const seconds =
-        Math.floor(
-          Number(value)
-        );
-
-      if (
-        !Number.isFinite(seconds)
-      ) {
-        return "-";
-      }
-
-      const days =
-        Math.floor(
-          seconds / 86400
-        );
-
-      const hours =
-        Math.floor(
-          (seconds % 86400) / 3600
-        );
-
-      const minutes =
-        Math.floor(
-          (seconds % 3600) / 60
-        );
-
-      const secs =
-        seconds % 60;
-
-      let result = "";
-
-      if (days) {
-        result += `${days}d `;
-      }
-
-      if (hours) {
-        result += `${hours}h `;
-      }
-
-      if (minutes) {
-        result += `${minutes}m `;
-      }
-
-      result += `${secs}s`;
-
-      return result.trim();
-
-    }
-
-
-    // ---------------------------------
-    // AUTO REFRESH
-    // ---------------------------------
-
-    setInterval(() => {
-
-      const username =
-        $("username").value.trim();
-
-      if (!username) return;
-
-      loadDetails();
-      loadStats();
-      loadSettings();
-
-    }, 30000);
-
-
-    // ---------------------------------
-    // PAGE START
-    // ---------------------------------
-
-    document.addEventListener(
-      "DOMContentLoaded",
-      () => {
-
-        const savedUsername =
-          localStorage.getItem(
-            "dimuwa_username"
-          );
-
-        if (savedUsername) {
-
-          $("username").value =
-            savedUsername;
-
-          currentUsername =
-            savedUsername;
-
-          loadAll();
+          status.textContent = "WARNING";
 
         }
 
+      } catch (error) {
+
+        status.textContent = "OFFLINE";
+
       }
-    );
+
+    }
+
+    checkHealth();
+
+    setInterval(checkHealth, 30000);
 
   </script>
 
