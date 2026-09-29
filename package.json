@@ -1,20 +1,21 @@
 {
   "name": "dimuwa-mini-bot",
-  "version": "3.1.0",
-  "description": "WhatsApp Automation Bot with Web Dashboard",
+  "version": "4.0.0",
+  "description": "DIMUWA WhatsApp Mini Bot with Railway-ready dashboard",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
-  "dependencies": {
-    "@whiskeysockets/baileys": "6.7.24",
-    "axios": "^1.6.8",
-    "cors": "^2.8.5",
-    "express": "^4.19.2",
-    "pino": "^9.0.0",
-    "sqlite3": "^5.1.7"
-  },
   "engines": {
     "node": "20.x"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "6.7.24",
+    "axios": "^1.7.9",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "pino": "^9.6.0",
+    "qrcode": "^1.5.4",
+    "yt-dlp-exec": "^1.0.2"
   }
 }
