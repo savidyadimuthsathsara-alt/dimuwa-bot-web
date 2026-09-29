@@ -1,93 +1,154 @@
 "use strict";
 
+/*
+========================================================
+                 DIMUWA MINI BOT
+                 VERSION 5.0.0
+========================================================
+
+Features:
+- WhatsApp Pairing Code
+- WhatsApp QR
+- Persistent sessions
+- Persistent settings
+- Persistent statistics
+- .menu
+- .alive
+- .status
+- .settings
+- Settings code system
+- .vv
+- .save
+- TikTok downloader
+- YouTube downloader
+- Facebook downloader
+- Auto Read
+- Always Online
+- Composing
+- Status Read
+- Status Reaction
+- Random Status Reaction
+- Anti Delete
+- Same Chat / My Inbox targets
+- Public / Private / Inbox modes
+- Bot Power
+- Railway compatible
+- No yt-dlp-exec dependency
+- Standalone yt-dlp downloaded at runtime
+
+IMPORTANT:
+Use Railway Volume mounted at:
+    /app/data
+
+The application uses DATA_DIR for persistent data.
+========================================================
+*/
+
 const express = require("express");
 const cors = require("cors");
 const pino = require("pino");
+const QRCode = require("qrcode");
+
 const fs = require("fs");
+const fsp = require("fs/promises");
 const path = require("path");
 const os = require("os");
+const https = require("https");
+const http = require("http");
 const crypto = require("crypto");
+const { execFile } = require("child_process");
+const { promisify } = require("util");
+
+const execFileAsync = promisify(execFile);
 
 const {
   default: makeWASocket,
   useMultiFileAuthState,
   DisconnectReason,
   Browsers,
-  fetchLatestWaWebVersion,
-  downloadContentFromMessage,
-  jidNormalizedUser
+  downloadMediaMessage,
+  getContentType,
+  normalizeMessageContent
 } = require("@whiskeysockets/baileys");
 
-const QRCode = require("qrcode");
-const axios = require("axios");
-const ytDlp = require("yt-dlp-exec");
 
-/* =========================================================
+/* =====================================================
+   APP CONFIG
+===================================================== */
+
+const PORT = Number(process.env.PORT || 3000);
+
+const DATA_DIR =
+  process.env.DATA_DIR ||
+  process.env.RAILWAY_VOLUME_MOUNT_PATH ||
+  path.join(__dirname, "data");
+
+const SESSION_DIR = path.join(DATA_DIR, "sessions");
+const MEDIA_DIR = path.join(DATA_DIR, "media");
+const TOOLS_DIR = path.join(DATA_DIR, "tools");
+
+const SETTINGS_FILE = path.join(
+  DATA_DIR,
+  "settings.json"
+);
+
+const STATS_FILE = path.join(
+  DATA_DIR,
+  "stats.json"
+);
+
+const LOG_LEVEL =
+  process.env.LOG_LEVEL || "info";
+
+const logger = pino({
+  level: LOG_LEVEL
+});
+
+
+/* =====================================================
    EXPRESS
-========================================================= */
+===================================================== */
 
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+
+app.use(express.json({
+  limit: "2mb"
+}));
+
+app.use(express.urlencoded({
+  extended: true
+}));
+
 app.use(express.static(__dirname));
 
-const PORT = Number(process.env.PORT || 3000);
 
-/* =========================================================
-   RAILWAY DATA DIRECTORY
-========================================================= */
+/* =====================================================
+   DIRECTORIES
+===================================================== */
 
-const DATA_DIR =
-  process.env.DATA_DIR ||
-  path.join(__dirname, "data");
+for (const dir of [
+  DATA_DIR,
+  SESSION_DIR,
+  MEDIA_DIR,
+  TOOLS_DIR
+]) {
+  fs.mkdirSync(dir, {
+    recursive: true
+  });
+}
 
-fs.mkdirSync(DATA_DIR, {
-  recursive: true
-});
 
-/*
-  Railway Volume එකක් add කළාම:
-
-  Mount Path:
-  /app/data
-
-  Variable:
-  DATA_DIR=/app/data
-*/
-
-const SETTINGS_FILE =
-  path.join(DATA_DIR, "settings.json");
-
-const STATS_FILE =
-  path.join(DATA_DIR, "stats.json");
-
-/* =========================================================
-   GLOBALS
-========================================================= */
-
-const sockets = new Map();
-const connectionStates = new Map();
-const qrStore = new Map();
-const pairingRequested = new Set();
-
-const messageCache = new Map();
-
-const MAX_CACHE = 500;
-
-const botStats = new Map();
-
-const startTimes = new Map();
-
-/* =========================================================
+/* =====================================================
    DEFAULT SETTINGS
-========================================================= */
+===================================================== */
 
 const DEFAULT_SETTINGS = {
-  alwaysOnline: "OFF",
+  alwaysOnline: "ON",
   autoRead: "OFF",
 
-  botMode: "PUBLIC",
+  botMode: "INBOX",
 
   statusRead: "ON",
   statusReact: "GREEN",
@@ -97,255 +158,373 @@ const DEFAULT_SETTINGS = {
   antiDelete: "ON",
   antiDelTarget: "SAME",
 
-  vvTarget: "SAME",
-  saveTarget: "SAME",
+  vvTarget: "PRIVATE",
+  saveTarget: "PRIVATE",
 
   botPower: "ON"
 };
 
-/* =========================================================
-   SETTINGS STORAGE
-========================================================= */
 
-function loadSettings() {
+/* =====================================================
+   IN-MEMORY STORAGE
+===================================================== */
+
+const bots = new Map();
+
+const startingBots = new Map();
+
+const qrStore = new Map();
+
+const pairingStore = new Map();
+
+const messageCache = new Map();
+
+const MAX_MESSAGE_CACHE = 1000;
+
+const CACHE_TTL =
+  60 * 60 * 1000;
+
+const statusReactList = [
+  "❤️",
+  "💚",
+  "💙",
+  "💛",
+  "🤍",
+  "🧡",
+  "💜",
+  "🩷",
+  "🔥",
+  "😂",
+  "😍",
+  "😮",
+  "👍"
+];
+
+
+/* =====================================================
+   JSON STORAGE HELPERS
+===================================================== */
+
+function readJson(file, fallback) {
+
   try {
-    if (!fs.existsSync(SETTINGS_FILE)) {
-      return {};
+
+    if (!fs.existsSync(file)) {
+      return fallback;
     }
 
-    const raw = fs.readFileSync(
-      SETTINGS_FILE,
+    const raw =
+      fs.readFileSync(
+        file,
+        "utf8"
+      );
+
+    if (!raw.trim()) {
+      return fallback;
+    }
+
+    return JSON.parse(raw);
+
+  } catch (error) {
+
+    logger.error({
+      error: error.message,
+      file
+    }, "JSON read error");
+
+    return fallback;
+  }
+}
+
+
+function writeJson(file, data) {
+
+  try {
+
+    const temp =
+      `${file}.tmp`;
+
+    fs.writeFileSync(
+      temp,
+      JSON.stringify(
+        data,
+        null,
+        2
+      ),
       "utf8"
     );
 
-    return JSON.parse(raw || "{}");
-  } catch (error) {
-    console.error(
-      "Settings load error:",
-      error.message
+    fs.renameSync(
+      temp,
+      file
     );
 
-    return {};
+  } catch (error) {
+
+    logger.error({
+      error: error.message,
+      file
+    }, "JSON write error");
+
   }
+
 }
 
-let userSettingsStore = loadSettings();
 
-function saveSettings() {
-  try {
-    fs.writeFileSync(
-      SETTINGS_FILE,
-      JSON.stringify(
-        userSettingsStore,
-        null,
-        2
-      )
-    );
-  } catch (error) {
-    console.error(
-      "Settings save error:",
-      error.message
-    );
-  }
+const settingsDB =
+  readJson(
+    SETTINGS_FILE,
+    {}
+  );
+
+const statsDB =
+  readJson(
+    STATS_FILE,
+    {}
+  );
+
+
+/* =====================================================
+   USERNAME HELPERS
+===================================================== */
+
+function cleanUsername(username) {
+
+  return String(
+    username || "default"
+  )
+    .trim()
+    .replace(
+      /[^a-zA-Z0-9_-]/g,
+      "_"
+    )
+    .slice(0, 60) || "default";
 }
+
+
+function sessionPath(username) {
+
+  return path.join(
+    SESSION_DIR,
+    `session_${cleanUsername(username)}`
+  );
+}
+
 
 function getSettings(username) {
-  if (!userSettingsStore[username]) {
-    userSettingsStore[username] = {
+
+  const key =
+    cleanUsername(username);
+
+  if (!settingsDB[key]) {
+
+    settingsDB[key] = {
       ...DEFAULT_SETTINGS
     };
 
-    saveSettings();
-  }
-
-  return userSettingsStore[username];
-}
-
-/* =========================================================
-   STATS STORAGE
-========================================================= */
-
-function loadStats() {
-  try {
-    if (!fs.existsSync(STATS_FILE)) {
-      return {};
-    }
-
-    return JSON.parse(
-      fs.readFileSync(
-        STATS_FILE,
-        "utf8"
-      )
+    writeJson(
+      SETTINGS_FILE,
+      settingsDB
     );
-  } catch {
-    return {};
   }
+
+  return settingsDB[key];
 }
 
-let statsStore = loadStats();
+
+function saveSettings(
+  username,
+  settings
+) {
+
+  const key =
+    cleanUsername(username);
+
+  settingsDB[key] = {
+    ...DEFAULT_SETTINGS,
+    ...settings
+  };
+
+  writeJson(
+    SETTINGS_FILE,
+    settingsDB
+  );
+}
+
+
+function getStats(username) {
+
+  const key =
+    cleanUsername(username);
+
+  if (!statsDB[key]) {
+
+    statsDB[key] = {
+      messages: 0,
+      commands: 0,
+      downloads: 0,
+      startedAt: Date.now(),
+      connectedAt: null,
+      lastSeen: null
+    };
+
+    writeJson(
+      STATS_FILE,
+      statsDB
+    );
+  }
+
+  return statsDB[key];
+}
+
 
 function saveStats() {
-  try {
-    fs.writeFileSync(
-      STATS_FILE,
-      JSON.stringify(
-        statsStore,
-        null,
-        2
-      )
-    );
-  } catch (error) {
-    console.error(
-      "Stats save error:",
-      error.message
-    );
-  }
+
+  writeJson(
+    STATS_FILE,
+    statsDB
+  );
 }
 
-function increaseMessageCount(username) {
-  if (!statsStore[username]) {
-    statsStore[username] = {
-      messages: 0
-    };
+
+/* =====================================================
+   BOT STATUS
+===================================================== */
+
+function isConnected(sock) {
+
+  return !!(
+    sock &&
+    sock.user &&
+    sock.user.id
+  );
+}
+
+
+function getBot(username) {
+
+  return bots.get(
+    cleanUsername(username)
+  );
+}
+
+
+function getOwnerJid(sock) {
+
+  if (!sock?.user?.id) {
+    return null;
   }
 
-  statsStore[username].messages++;
+  return sock.user.id;
+}
+
+
+function jidNumber(jid) {
+
+  if (!jid) {
+    return "";
+  }
+
+  return String(jid)
+    .split("@")[0]
+    .split(":")[0]
+    .replace(/\D/g, "");
+}
+
+
+function jidFromPhone(phone) {
+
+  const number =
+    String(phone || "")
+      .replace(/\D/g, "");
+
+  if (!number) {
+    return null;
+  }
+
+  return `${number}@s.whatsapp.net`;
+}
+
+
+function normalizePhone(phone) {
+
+  return String(
+    phone || ""
+  )
+    .replace(/\D/g, "")
+    .replace(/^00/, "");
+}
+
+
+/* =====================================================
+   STAT HELPERS
+===================================================== */
+
+function incrementStat(
+  username,
+  field,
+  amount = 1
+) {
+
+  const stats =
+    getStats(username);
+
+  stats[field] =
+    Number(stats[field] || 0)
+    + amount;
 
   saveStats();
 }
 
-/* =========================================================
-   SESSION PATH
-========================================================= */
 
-function getSessionPath(username) {
-  /*
-    IMPORTANT:
-    Template literal එකක් භාවිතා කළ යුතුයි.
-  */
+/* =====================================================
+   MESSAGE CACHE
+===================================================== */
 
-  return path.join(
-    DATA_DIR,
-    `session_${username}`
-  );
-}
+function cacheKey(key) {
 
-/* =========================================================
-   UTILS
-========================================================= */
-
-function sleep(ms) {
-  return new Promise(resolve =>
-    setTimeout(resolve, ms)
-  );
-}
-
-function safeUsername(username) {
-  return String(username || "")
-    .trim()
-    .replace(/[^a-zA-Z0-9_-]/g, "_")
-    .slice(0, 50);
-}
-
-function getOwnerJid(sock) {
-  try {
-    if (!sock.user?.id) {
-      return null;
-    }
-
-    return jidNormalizedUser(
-      sock.user.id
-    );
-  } catch {
+  if (!key) {
     return null;
   }
+
+  return [
+    key.remoteJid || "",
+    key.id || "",
+    key.participant || ""
+  ].join(":");
 }
 
-function isGroup(jid) {
-  return String(jid || "")
-    .endsWith("@g.us");
-}
-
-function isStatus(jid) {
-  return jid === "status@broadcast";
-}
-
-function isPrivateChat(jid) {
-  return (
-    jid &&
-    !isGroup(jid) &&
-    !isStatus(jid)
-  );
-}
-
-/* =========================================================
-   BOT MODE
-========================================================= */
-
-function isAllowedChat(
-  sock,
-  username,
-  jid
-) {
-  const settings =
-    getSettings(username);
-
-  if (
-    settings.botPower === "OFF"
-  ) {
-    return false;
-  }
-
-  const mode =
-    settings.botMode || "PUBLIC";
-
-  if (mode === "PUBLIC") {
-    return true;
-  }
-
-  if (mode === "PRIVATE") {
-    const owner = getOwnerJid(sock);
-
-    return (
-      !!owner &&
-      jidNormalizedUser(jid) === owner
-    );
-  }
-
-  if (mode === "INBOX") {
-    return isPrivateChat(jid);
-  }
-
-  return true;
-}
-
-/* =========================================================
-   MESSAGE CACHE
-========================================================= */
 
 function cacheMessage(msg) {
-  if (!msg?.key?.id) {
+
+  if (
+    !msg ||
+    !msg.key ||
+    !msg.message
+  ) {
     return;
   }
 
-  const jid =
-    msg.key.remoteJid || "";
+  const key =
+    cacheKey(msg.key);
 
-  const id =
-    msg.key.id;
-
-  const cacheKey =
-    `${jid}:${id}`;
+  if (!key) {
+    return;
+  }
 
   messageCache.set(
-    cacheKey,
-    msg
+    key,
+    {
+      message: msg,
+      savedAt: Date.now()
+    }
   );
 
   if (
     messageCache.size >
-    MAX_CACHE
+    MAX_MESSAGE_CACHE
   ) {
+
     const first =
       messageCache.keys().next().value;
 
@@ -355,1312 +534,1777 @@ function cacheMessage(msg) {
   }
 }
 
+
 function getCachedMessage(key) {
-  if (!key?.id) {
+
+  const item =
+    messageCache.get(
+      cacheKey(key)
+    );
+
+  if (!item) {
     return null;
   }
 
-  const jid =
-    key.remoteJid || "";
+  if (
+    Date.now() -
+    item.savedAt >
+    CACHE_TTL
+  ) {
 
-  return messageCache.get(
-    `${jid}:${key.id}`
-  ) || null;
-}
+    messageCache.delete(
+      cacheKey(key)
+    );
 
-/* =========================================================
-   RECURSIVE MESSAGE UNWRAP
-========================================================= */
-
-function unwrapMessage(message) {
-  let current = message;
-
-  while (current) {
-    if (
-      current.ephemeralMessage
-        ?.message
-    ) {
-      current =
-        current.ephemeralMessage.message;
-
-      continue;
-    }
-
-    if (
-      current.viewOnceMessage
-        ?.message
-    ) {
-      current =
-        current.viewOnceMessage.message;
-
-      continue;
-    }
-
-    if (
-      current.viewOnceMessageV2
-        ?.message
-    ) {
-      current =
-        current.viewOnceMessageV2.message;
-
-      continue;
-    }
-
-    if (
-      current.viewOnceMessageV2Extension
-        ?.message
-    ) {
-      current =
-        current.viewOnceMessageV2Extension.message;
-
-      continue;
-    }
-
-    break;
-  }
-
-  return current || null;
-}
-
-/* =========================================================
-   FIND MESSAGE CONTENT
-========================================================= */
-
-function getMessageContent(msg) {
-  if (!msg) {
     return null;
   }
 
-  return unwrapMessage(
-    msg.message
-  );
+  return item.message;
 }
 
-/* =========================================================
-   GET TEXT
-========================================================= */
 
-function getText(msg) {
-  const content =
-    getMessageContent(msg);
+/* =====================================================
+   CLEAN OLD CACHE
+===================================================== */
 
-  if (!content) {
+setInterval(() => {
+
+  const now =
+    Date.now();
+
+  for (
+    const [key, item]
+    of messageCache
+  ) {
+
+    if (
+      now - item.savedAt >
+      CACHE_TTL
+    ) {
+
+      messageCache.delete(key);
+
+    }
+  }
+
+}, 10 * 60 * 1000);
+
+
+/* =====================================================
+   MESSAGE TEXT
+===================================================== */
+
+function getMessageText(msg) {
+
+  if (!msg?.message) {
     return "";
   }
 
+  const message =
+    normalizeMessageContent(
+      msg.message
+    ) || msg.message;
+
   if (
-    typeof content.conversation ===
-    "string"
+    message.conversation
   ) {
-    return content.conversation;
+
+    return message.conversation;
+
   }
 
   if (
-    content.extendedTextMessage
+    message.extendedTextMessage
       ?.text
   ) {
-    return content.extendedTextMessage.text;
+
+    return message
+      .extendedTextMessage
+      .text;
+
   }
 
   if (
-    content.imageMessage
+    message.imageMessage
       ?.caption
   ) {
-    return content.imageMessage.caption;
+
+    return message
+      .imageMessage
+      .caption;
+
   }
 
   if (
-    content.videoMessage
+    message.videoMessage
       ?.caption
   ) {
-    return content.videoMessage.caption;
+
+    return message
+      .videoMessage
+      .caption;
+
   }
 
   if (
-    content.documentMessage
+    message.documentMessage
       ?.caption
   ) {
-    return content.documentMessage.caption;
+
+    return message
+      .documentMessage
+      .caption;
+
   }
 
   return "";
 }
 
-/* =========================================================
-   QUOTED MESSAGE
-========================================================= */
 
-function getQuotedMessage(msg) {
-  const content =
-    getMessageContent(msg);
+/* =====================================================
+   GROUP / PRIVATE
+===================================================== */
 
-  if (!content) {
-    return null;
-  }
+function isGroupJid(jid) {
 
-  const quoted =
-    content.extendedTextMessage
-      ?.contextInfo
-      ?.quotedMessage;
-
-  if (quoted) {
-    return {
-      message: quoted
-    };
-  }
-
-  const imageQuoted =
-    content.imageMessage
-      ?.contextInfo
-      ?.quotedMessage;
-
-  if (imageQuoted) {
-    return {
-      message: imageQuoted
-    };
-  }
-
-  const videoQuoted =
-    content.videoMessage
-      ?.contextInfo
-      ?.quotedMessage;
-
-  if (videoQuoted) {
-    return {
-      message: videoQuoted
-    };
-  }
-
-  return null;
+  return String(jid || "")
+    .endsWith("@g.us");
 }
 
-/* =========================================================
-   DOWNLOAD BAILEYS MEDIA
-========================================================= */
 
-async function downloadBaileysMedia(
-  message
-) {
-  const content =
-    getMessageContent(message);
+function isStatusJid(jid) {
 
-  if (!content) {
-    return null;
-  }
-
-  let mediaType = null;
-  let mediaMessage = null;
-
-  if (content.imageMessage) {
-    mediaType = "image";
-    mediaMessage =
-      content.imageMessage;
-  }
-
-  else if (content.videoMessage) {
-    mediaType = "video";
-    mediaMessage =
-      content.videoMessage;
-  }
-
-  else if (content.audioMessage) {
-    mediaType = "audio";
-    mediaMessage =
-      content.audioMessage;
-  }
-
-  else if (content.documentMessage) {
-    mediaType = "document";
-    mediaMessage =
-      content.documentMessage;
-  }
-
-  else if (content.stickerMessage) {
-    mediaType = "sticker";
-    mediaMessage =
-      content.stickerMessage;
-  }
-
-  if (
-    !mediaType ||
-    !mediaMessage
-  ) {
-    return null;
-  }
-
-  try {
-    const stream =
-      await downloadContentFromMessage(
-        mediaMessage,
-        mediaType
-      );
-
-    const chunks = [];
-
-    for await (
-      const chunk of stream
-    ) {
-      chunks.push(chunk);
-    }
-
-    return {
-      buffer: Buffer.concat(chunks),
-      type: mediaType,
-      message: mediaMessage
-    };
-  } catch (error) {
-    console.error(
-      "Media download error:",
-      error.message
-    );
-
-    return null;
-  }
+  return jid ===
+    "status@broadcast";
 }
 
-/* =========================================================
-   SEND MEDIA TO CHAT
-========================================================= */
 
-async function sendMediaMessage(
+/* =====================================================
+   BOT MODE
+===================================================== */
+
+function canProcessMessage(
   sock,
-  jid,
-  message
+  username,
+  msg
 ) {
-  const media =
-    await downloadBaileysMedia(
-      message
-    );
 
-  if (!media) {
+  const settings =
+    getSettings(username);
+
+  const remoteJid =
+    msg.key?.remoteJid;
+
+  if (!remoteJid) {
     return false;
   }
 
-  const m =
-    media.message;
+  if (
+    settings.botPower !== "ON"
+  ) {
+    return false;
+  }
 
-  try {
-    if (media.type === "image") {
-      await sock.sendMessage(
-        jid,
-        {
-          image: media.buffer,
-          caption:
-            m.caption || undefined
-        }
-      );
+  const mode =
+    String(
+      settings.botMode || "PUBLIC"
+    ).toUpperCase();
 
-      return true;
+  if (mode === "PUBLIC") {
+    return true;
+  }
+
+  if (mode === "PRIVATE") {
+
+    const owner =
+      getOwnerJid(sock);
+
+    if (!owner) {
+      return false;
     }
 
-    if (media.type === "video") {
-      await sock.sendMessage(
-        jid,
-        {
-          video: media.buffer,
-          caption:
-            m.caption || undefined,
-          mimetype:
-            m.mimetype ||
-            "video/mp4"
-        }
-      );
-
-      return true;
-    }
-
-    if (media.type === "audio") {
-      await sock.sendMessage(
-        jid,
-        {
-          audio: media.buffer,
-          mimetype:
-            m.mimetype ||
-            "audio/mpeg",
-          ptt:
-            !!m.ptt
-        }
-      );
-
-      return true;
-    }
-
-    if (media.type === "document") {
-      await sock.sendMessage(
-        jid,
-        {
-          document:
-            media.buffer,
-          mimetype:
-            m.mimetype ||
-            "application/octet-stream",
-          fileName:
-            m.fileName ||
-            "file"
-        }
-      );
-
-      return true;
-    }
-
-    if (media.type === "sticker") {
-      await sock.sendMessage(
-        jid,
-        {
-          sticker:
-            media.buffer
-        }
-      );
-
-      return true;
-    }
-
-  } catch (error) {
-    console.error(
-      "Send media error:",
-      error.message
+    return (
+      msg.key?.fromMe ||
+      remoteJid === owner
     );
+  }
+
+  if (mode === "INBOX") {
+
+    return !isGroupJid(
+      remoteJid
+    );
+  }
+
+  return true;
+}
+
+
+/* =====================================================
+   SETTINGS MENU
+===================================================== */
+
+function settingsMenu(username) {
+
+  const s =
+    getSettings(username);
+
+  return `⚙️ DIMUWA MINI BOT SETTINGS
+│ Reply with the code below to update
+
+• PRESENCE & SCOPE •
+
+01. Always Online [ ${s.alwaysOnline} ]
+│ 1.1 Enable  •  1.2 Disable
+
+02. Auto Read [ ${s.autoRead} ]
+│ 2.1 Enable  •  2.2 Disable
+
+03. Bot Mode [ ${s.botMode} ]
+│ 3.1 Public  •  3.2 Private  •  3.3 Inbox
+
+• AUTOMATIONS & STATUS •
+
+04. Status Read [ ${s.statusRead} ]
+│ 4.1 Enable  •  4.2 Disable
+
+05. Status React [ ${s.statusReact} ]
+│ 5.1 Green  •  5.2 Random  •  5.3 Off
+
+07. Composing [ ${s.composing} ]
+│ 7.1 Enable  •  7.2 Disable
+
+• SECURITY & SYSTEM •
+
+09. Anti-Delete [ ${s.antiDelete} ]
+│ 9.1 Enable  •  9.2 Disable
+
+10. Anti-Del Target [ ${s.antiDelTarget} ]
+│ 10.1 Same Chat  •  10.2 My Inbox
+
+11. View Once (.vv) Target [ ${s.vvTarget} ]
+│ 11.1 Same Chat  •  11.2 My Inbox
+
+12. Save (.save) Target [ ${s.saveTarget} ]
+│ 12.1 Same Chat  •  12.2 My Inbox
+
+13. Bot Power [ ${s.botPower} ]
+│ 13.1 Turn ON  •  13.2 Turn Off
+
+© CREATOR BY DIMUTH SATHSARA`;
+}
+
+
+/* =====================================================
+   SETTINGS CODE PROCESSOR
+===================================================== */
+
+async function processSettingsCode(
+  sock,
+  username,
+  msg,
+  code
+) {
+
+  const owner =
+    getOwnerJid(sock);
+
+  const sender =
+    msg.key?.participant ||
+    msg.key?.remoteJid;
+
+  const isOwner =
+    !!owner &&
+    (
+      msg.key?.fromMe ||
+      sender === owner ||
+      jidNumber(sender) ===
+      jidNumber(owner)
+    );
+
+  if (!isOwner) {
+
+    await sock.sendMessage(
+      msg.key.remoteJid,
+      {
+        text:
+          "❌ Only bot owner can change settings."
+      }
+    );
+
+    return true;
+  }
+
+  const s =
+    getSettings(username);
+
+  let changed = false;
+  let message = "";
+
+  switch (code) {
+
+    case "1.1":
+      s.alwaysOnline = "ON";
+      changed = true;
+      message = "Always Online → ON";
+      break;
+
+    case "1.2":
+      s.alwaysOnline = "OFF";
+      changed = true;
+      message = "Always Online → OFF";
+      break;
+
+    case "2.1":
+      s.autoRead = "ON";
+      changed = true;
+      message = "Auto Read → ON";
+      break;
+
+    case "2.2":
+      s.autoRead = "OFF";
+      changed = true;
+      message = "Auto Read → OFF";
+      break;
+
+    case "3.1":
+      s.botMode = "PUBLIC";
+      changed = true;
+      message = "Bot Mode → PUBLIC";
+      break;
+
+    case "3.2":
+      s.botMode = "PRIVATE";
+      changed = true;
+      message = "Bot Mode → PRIVATE";
+      break;
+
+    case "3.3":
+      s.botMode = "INBOX";
+      changed = true;
+      message = "Bot Mode → INBOX";
+      break;
+
+    case "4.1":
+      s.statusRead = "ON";
+      changed = true;
+      message = "Status Read → ON";
+      break;
+
+    case "4.2":
+      s.statusRead = "OFF";
+      changed = true;
+      message = "Status Read → OFF";
+      break;
+
+    case "5.1":
+      s.statusReact = "GREEN";
+      changed = true;
+      message = "Status React → GREEN 💚";
+      break;
+
+    case "5.2":
+      s.statusReact = "RANDOM";
+      changed = true;
+      message = "Status React → RANDOM 🎲";
+      break;
+
+    case "5.3":
+      s.statusReact = "OFF";
+      changed = true;
+      message = "Status React → OFF";
+      break;
+
+    case "7.1":
+      s.composing = "ON";
+      changed = true;
+      message = "Composing → ON";
+      break;
+
+    case "7.2":
+      s.composing = "OFF";
+      changed = true;
+      message = "Composing → OFF";
+      break;
+
+    case "9.1":
+      s.antiDelete = "ON";
+      changed = true;
+      message = "Anti-Delete → ON";
+      break;
+
+    case "9.2":
+      s.antiDelete = "OFF";
+      changed = true;
+      message = "Anti-Delete → OFF";
+      break;
+
+    case "10.1":
+      s.antiDelTarget = "SAME";
+      changed = true;
+      message =
+        "Anti-Delete Target → SAME CHAT";
+      break;
+
+    case "10.2":
+      s.antiDelTarget = "PRIVATE";
+      changed = true;
+      message =
+        "Anti-Delete Target → MY INBOX";
+      break;
+
+    case "11.1":
+      s.vvTarget = "SAME";
+      changed = true;
+      message =
+        ".vv Target → SAME CHAT";
+      break;
+
+    case "11.2":
+      s.vvTarget = "PRIVATE";
+      changed = true;
+      message =
+        ".vv Target → MY INBOX";
+      break;
+
+    case "12.1":
+      s.saveTarget = "SAME";
+      changed = true;
+      message =
+        ".save Target → SAME CHAT";
+      break;
+
+    case "12.2":
+      s.saveTarget = "PRIVATE";
+      changed = true;
+      message =
+        ".save Target → MY INBOX";
+      break;
+
+    case "13.1":
+      s.botPower = "ON";
+      changed = true;
+      message =
+        "Bot Power → ON";
+      break;
+
+    case "13.2":
+      s.botPower = "OFF";
+      changed = true;
+      message =
+        "Bot Power → OFF";
+      break;
+
+    default:
+      return false;
+  }
+
+  if (changed) {
+
+    saveSettings(
+      username,
+      s
+    );
+
+    await sock.sendMessage(
+      msg.key.remoteJid,
+      {
+        text:
+          `✅ SETTING UPDATED\n\n${message}\n\nUse .settings to view current settings.`
+      }
+    );
+
+    if (
+      s.alwaysOnline === "ON"
+    ) {
+
+      await sock.sendPresenceUpdate(
+        "available"
+      ).catch(() => {});
+
+    }
+
+    return true;
   }
 
   return false;
 }
 
-/* =========================================================
-   SEND QUOTED MEDIA
-========================================================= */
 
-async function sendQuotedMedia(
-  sock,
-  msg,
-  destination
-) {
-  const quoted =
-    getQuotedMessage(msg);
+/* =====================================================
+   COMMAND HELP
+===================================================== */
 
-  if (!quoted) {
-    return {
-      success: false,
-      error:
-        "Please reply to an image/video/audio/document/sticker."
-    };
-  }
+function menuText() {
 
-  const success =
-    await sendMediaMessage(
-      sock,
-      destination,
-      quoted
-    );
-
-  if (!success) {
-    return {
-      success: false,
-      error:
-        "Quoted message does not contain supported media."
-    };
-  }
-
-  return {
-    success: true
-  };
+  return `╭━━━〔 🤖 DIMUWA MINI BOT 〕━━━╮
+┃
+┃ 👑 Created by DIMUTH SATHSARA
+┃
+┃ 📌 BASIC
+┃ • .menu
+┃ • .alive
+┃ • .status
+┃ • .settings
+┃
+┃ 📥 MEDIA
+┃ • Reply media + .vv
+┃ • Reply media + .save
+┃
+┃ 📥 DOWNLOADER
+┃ • TikTok URL
+┃ • YouTube URL
+┃ • Facebook URL
+┃
+┃ ⚙️ SETTINGS
+┃ • Reply setting code
+┃
+╰━━━━━━━━━━━━━━━━━━━━━━╯`;
 }
 
-/* =========================================================
-   DESTINATION
-========================================================= */
 
-function getTargetJid(
-  sock,
-  from,
-  setting
-) {
-  if (
-    String(setting).toUpperCase() ===
-    "PRIVATE"
-  ) {
-    return getOwnerJid(sock);
-  }
+function aliveText(username) {
 
-  return from;
-}
-
-/* =========================================================
-   RANDOM STATUS REACTION
-========================================================= */
-
-function randomReaction() {
-  const reactions = [
-    "❤️",
-    "🔥",
-    "😂",
-    "😍",
-    "😮",
-    "👏",
-    "💯",
-    "👍",
-    "🥰",
-    "😎"
-  ];
-
-  return reactions[
-    Math.floor(
-      Math.random() *
-      reactions.length
-    )
-  ];
-}
-
-/* =========================================================
-   STATUS HANDLER
-========================================================= */
-
-async function handleStatus(
-  sock,
-  username,
-  messages
-) {
-  const settings =
-    getSettings(username);
-
-  if (
-    settings.statusRead !== "ON" &&
-    settings.statusReact === "OFF"
-  ) {
-    return;
-  }
-
-  for (const msg of messages) {
-    try {
-      if (
-        !msg?.key ||
-        msg.key.remoteJid !==
-          "status@broadcast"
-      ) {
-        continue;
-      }
-
-      if (
-        settings.statusRead ===
-        "ON"
-      ) {
-        try {
-          await sock.readMessages([
-            msg.key
-          ]);
-        } catch {}
-      }
-
-      if (
-        settings.statusReact !==
-        "OFF"
-      ) {
-        const participant =
-          msg.key.participant ||
-          msg.participant;
-
-        if (!participant) {
-          continue;
-        }
-
-        let emoji = "❤️";
-
-        if (
-          settings.statusReact ===
-          "RANDOM"
-        ) {
-          emoji =
-            randomReaction();
-        }
-
-        await sock.sendMessage(
-          "status@broadcast",
-          {
-            react: {
-              text: emoji,
-              key: msg.key
-            }
-          },
-          {
-            statusJidList: [
-              participant
-            ]
-          }
-        );
-      }
-    } catch (error) {
-      console.error(
-        "Status error:",
-        error.message
-      );
-    }
-  }
-}
-
-/* =========================================================
-   ANTI DELETE
-========================================================= */
-
-async function handleDeletedMessage(
-  sock,
-  username,
-  key
-) {
-  const settings =
-    getSettings(username);
-
-  if (
-    settings.antiDelete !==
-    "ON"
-  ) {
-    return;
-  }
-
-  const cached =
-    getCachedMessage(key);
-
-  if (!cached) {
-    console.log(
-      "Deleted message not found in cache:",
-      key?.id
-    );
-
-    return;
-  }
-
-  const originalChat =
-    key.remoteJid;
-
-  let destination =
-    originalChat;
-
-  if (
-    settings.antiDelTarget ===
-    "PRIVATE"
-  ) {
-    destination =
-      getOwnerJid(sock);
-  }
-
-  if (!destination) {
-    return;
-  }
-
-  try {
-    const text =
-      getText(cached);
-
-    if (text) {
-      await sock.sendMessage(
-        destination,
-        {
-          text:
-            `🗑️ *ANTI DELETE*\n\n${text}`
-        }
-      );
-
-      return;
-    }
-
-    const sent =
-      await sendMediaMessage(
-        sock,
-        destination,
-        cached
-      );
-
-    if (!sent) {
-      await sock.sendMessage(
-        destination,
-        {
-          text:
-            "🗑️ Anti-delete: deleted message was detected, but its content could not be restored."
-        }
-      );
-    }
-
-  } catch (error) {
-    console.error(
-      "Anti-delete error:",
-      error.message
-    );
-  }
-}
-
-/* =========================================================
-   COMMAND MENU
-========================================================= */
-
-async function sendMenu(
-  sock,
-  jid
-) {
-  const menu = `
-╭━━━〔 *DIMUWA MINI BOT* 〕━━━╮
-
-│ 👋 *WhatsApp Automation Bot*
-│
-│ 📌 *GENERAL*
-│ ├ .menu
-│ ├ .alive
-│ ├ .status
-│ └ .settings
-│
-│ 🎬 *MEDIA*
-│ ├ .vv
-│ ├ .save
-│ ├ .tt <url>
-│ ├ .yt <url>
-│ └ .fb <url>
-│
-│ ⚙️ *SETTINGS*
-│
-│ .settings
-│
-│ Configure:
-│ • VV target
-│ • SAVE target
-│ • Anti-delete
-│ • Status read
-│ • Status reaction
-│ • Auto read
-│ • Bot mode
-│
-╰━━━━━━━━━━━━━━━━━━━━━━╯
-
-© 2026 DIMUWA BOT
-Created by DIMUTH SATHSARA
-`;
-
-  await sock.sendMessage(
-    jid,
-    {
-      text: menu
-    }
-  );
-}
-
-/* =========================================================
-   SETTINGS MENU
-========================================================= */
-
-async function sendSettings(
-  sock,
-  jid,
-  username
-) {
   const s =
     getSettings(username);
 
-  const text = `
-⚙️ *DIMUWA BOT SETTINGS*
-
-1️⃣ Always Online:
-${s.alwaysOnline}
-
-2️⃣ Auto Read:
-${s.autoRead}
-
-3️⃣ Bot Mode:
-${s.botMode}
-
-4️⃣ Status Read:
-${s.statusRead}
-
-5️⃣ Status React:
-${s.statusReact}
-
-6️⃣ Composing:
-${s.composing}
-
-7️⃣ Anti Delete:
-${s.antiDelete}
-
-8️⃣ Anti Delete Target:
-${s.antiDelTarget}
-
-9️⃣ VV Target:
-${s.vvTarget}
-
-🔟 SAVE Target:
-${s.saveTarget}
-
-1️⃣1️⃣ Bot Power:
-${s.botPower}
-
-
-*COMMANDS*
-
-.settings vv same
-.settings vv private
-
-.settings save same
-.settings save private
-
-.settings antidelete on
-.settings antidelete off
-
-.settings antidelete same
-.settings antidelete private
-
-.settings autoread on
-.settings autoread off
-
-.settings statusread on
-.settings statusread off
-
-.settings statusreact random
-.settings statusreact green
-.settings statusreact off
-
-.settings botmode public
-.settings botmode private
-.settings botmode inbox
-
-.settings power on
-.settings power off
-`;
-
-  await sock.sendMessage(
-    jid,
-    {
-      text
-    }
-  );
+  return `╭━━〔 🟢 DIMUWA BOT ALIVE 〕━━╮
+┃
+┃ 🤖 Bot: ONLINE
+┃ 👤 User: ${username}
+┃ ⚡ Power: ${s.botPower}
+┃ 📥 Mode: ${s.botMode}
+┃
+┃ © DIMUTH SATHSARA
+╰━━━━━━━━━━━━━━━━━━━━━━╯`;
 }
 
-/* =========================================================
-   SETTINGS COMMAND
-========================================================= */
 
-async function processSettingsCommand(
-  sock,
-  jid,
+function statusText(
   username,
-  text
+  sock
 ) {
-  const args =
-    text.trim().split(/\s+/);
 
-  const command =
-    args[1]?.toLowerCase();
-
-  const value =
-    args[2]?.toLowerCase();
-
-  const settings =
+  const s =
     getSettings(username);
 
-  if (!command) {
-    await sendSettings(
-      sock,
-      jid,
-      username
-    );
+  const stats =
+    getStats(username);
 
-    return;
-  }
-
-  let changed = true;
-
-  if (command === "vv") {
-    if (
-      value === "same"
-    ) {
-      settings.vvTarget =
-        "SAME";
-    }
-
-    else if (
-      value === "private" ||
-      value === "inbox"
-    ) {
-      settings.vvTarget =
-        "PRIVATE";
-    }
-
-    else {
-      changed = false;
-    }
-  }
-
-  else if (
-    command === "save"
-  ) {
-    if (
-      value === "same"
-    ) {
-      settings.saveTarget =
-        "SAME";
-    }
-
-    else if (
-      value === "private" ||
-      value === "inbox"
-    ) {
-      settings.saveTarget =
-        "PRIVATE";
-    }
-
-    else {
-      changed = false;
-    }
-  }
-
-  else if (
-    command === "antidelete"
-  ) {
-    if (
-      value === "on" ||
-      value === "off"
-    ) {
-      settings.antiDelete =
-        value.toUpperCase();
-    }
-
-    else if (
-      value === "same"
-    ) {
-      settings.antiDelTarget =
-        "SAME";
-    }
-
-    else if (
-      value === "private" ||
-      value === "inbox"
-    ) {
-      settings.antiDelTarget =
-        "PRIVATE";
-    }
-
-    else {
-      changed = false;
-    }
-  }
-
-  else if (
-    command === "autoread"
-  ) {
-    if (
-      value === "on" ||
-      value === "off"
-    ) {
-      settings.autoRead =
-        value.toUpperCase();
-    }
-
-    else {
-      changed = false;
-    }
-  }
-
-  else if (
-    command === "statusread"
-  ) {
-    if (
-      value === "on" ||
-      value === "off"
-    ) {
-      settings.statusRead =
-        value.toUpperCase();
-    }
-
-    else {
-      changed = false;
-    }
-  }
-
-  else if (
-    command === "statusreact"
-  ) {
-    if (
-      value === "random"
-    ) {
-      settings.statusReact =
-        "RANDOM";
-    }
-
-    else if (
-      value === "green"
-    ) {
-      settings.statusReact =
-        "GREEN";
-    }
-
-    else if (
-      value === "off"
-    ) {
-      settings.statusReact =
-        "OFF";
-    }
-
-    else {
-      changed = false;
-    }
-  }
-
-  else if (
-    command === "botmode"
-  ) {
-    if (
-      [
-        "public",
-        "private",
-        "inbox"
-      ].includes(value)
-    ) {
-      settings.botMode =
-        value.toUpperCase();
-    }
-
-    else {
-      changed = false;
-    }
-  }
-
-  else if (
-    command === "power"
-  ) {
-    if (
-      value === "on" ||
-      value === "off"
-    ) {
-      settings.botPower =
-        value.toUpperCase();
-    }
-
-    else {
-      changed = false;
-    }
-  }
-
-  else {
-    changed = false;
-  }
-
-  if (!changed) {
-    await sock.sendMessage(
-      jid,
-      {
-        text:
-          "❌ Invalid settings command.\n\nUse .settings to see available commands."
-      }
-    );
-
-    return;
-  }
-
-  userSettingsStore[username] =
-    settings;
-
-  saveSettings();
-
-  await sock.sendMessage(
-    jid,
-    {
-      text:
-        "✅ *SETTING UPDATED*\n\n" +
-        JSON.stringify(
-          settings,
-          null,
-          2
-        )
-    }
-  );
+  return `╭━━〔 📊 DIMUWA STATUS 〕━━╮
+┃
+┃ 🤖 Status: ${isConnected(sock) ? "CONNECTED" : "OFFLINE"}
+┃ 👤 Username: ${username}
+┃ 📱 Number: ${jidNumber(sock.user?.id) || "-"}
+┃
+┃ ⚙️ Bot Mode: ${s.botMode}
+┃ 🔌 Bot Power: ${s.botPower}
+┃ 👁 Auto Read: ${s.autoRead}
+┃ 🟢 Always Online: ${s.alwaysOnline}
+┃ 🗑 Anti Delete: ${s.antiDelete}
+┃ 📱 .vv Target: ${s.vvTarget}
+┃ 💾 .save Target: ${s.saveTarget}
+┃
+┃ 💬 Messages: ${stats.messages}
+┃ ⚡ Commands: ${stats.commands}
+┃ 📥 Downloads: ${stats.downloads}
+┃
+╰━━━━━━━━━━━━━━━━━━━━━━╯`;
 }
 
-/* =========================================================
-   URL EXTRACTION
-========================================================= */
 
-function extractUrl(text) {
-  const match =
-    String(text || "")
-      .match(/https?:\/\/\S+/i);
+/* =====================================================
+   MEDIA HELPERS
+===================================================== */
 
-  return match
-    ? match[0]
-    : null;
-}
-
-/* =========================================================
-   YT-DLP DOWNLOAD
-========================================================= */
-
-async function downloadWithYtDlp(
-  url
+function getMediaInfo(
+  message
 ) {
-  const tempDir =
-    path.join(
-      os.tmpdir(),
-      "dimuwa-bot"
-    );
 
-  fs.mkdirSync(
-    tempDir,
-    {
-      recursive: true
-    }
-  );
-
-  const fileBase =
-    path.join(
-      tempDir,
-      `${Date.now()}_${crypto.randomBytes(4).toString("hex")}`
-    );
-
-  const output =
-    `${fileBase}.%(ext)s`;
-
-  try {
-    await ytDlp(
-      url,
-      {
-        output,
-        format:
-          "best[ext=mp4]/best",
-        noPlaylist: true,
-        noWarnings: true,
-        quiet: true
-      }
-    );
-
-    const files =
-      fs.readdirSync(
-        tempDir
-      )
-      .filter(file =>
-        file.startsWith(
-          path.basename(fileBase)
-        )
-      );
-
-    if (!files.length) {
-      throw new Error(
-        "Downloader did not create a file."
-      );
-    }
-
-    const file =
-      path.join(
-        tempDir,
-        files[0]
-      );
-
-    return file;
-
-  } catch (error) {
-    console.error(
-      "yt-dlp error:",
-      error.message
-    );
-
+  if (!message) {
     return null;
   }
+
+  const normalized =
+    normalizeMessageContent(
+      message
+    ) || message;
+
+  const type =
+    getContentType(
+      normalized
+    );
+
+  if (!type) {
+    return null;
+  }
+
+  const map = {
+    imageMessage: "image",
+    videoMessage: "video",
+    audioMessage: "audio",
+    documentMessage: "document",
+    stickerMessage: "sticker"
+  };
+
+  const mediaType =
+    map[type];
+
+  if (!mediaType) {
+    return null;
+  }
+
+  return {
+    type,
+    mediaType,
+    content: normalized[type]
+  };
 }
 
-/* =========================================================
-   SEND DOWNLOADED FILE
-========================================================= */
 
-async function sendDownloadedFile(
+/* =====================================================
+   QUOTED MESSAGE
+===================================================== */
+
+function getQuotedMessage(
+  msg
+) {
+
+  if (!msg?.message) {
+    return null;
+  }
+
+  const message =
+    msg.message;
+
+  const type =
+    getContentType(message);
+
+  if (!type) {
+    return null;
+  }
+
+  const content =
+    message[type];
+
+  const context =
+    content?.contextInfo;
+
+  if (
+    !context?.quotedMessage ||
+    !context?.stanzaId
+  ) {
+    return null;
+  }
+
+  const quotedRemoteJid =
+    context.remoteJid ||
+    msg.key.remoteJid;
+
+  const participant =
+    context.participant ||
+    quotedRemoteJid;
+
+  return {
+    key: {
+      remoteJid:
+        quotedRemoteJid,
+      fromMe:
+        jidNumber(participant) ===
+        jidNumber(msg.key.remoteJid) &&
+        !!msg.key.fromMe,
+      id:
+        context.stanzaId,
+      participant
+    },
+
+    message:
+      context.quotedMessage
+  };
+}
+
+
+/* =====================================================
+   MEDIA DOWNLOAD
+===================================================== */
+
+async function downloadWhatsAppMedia(
+  sock,
+  message
+) {
+
+  const info =
+    getMediaInfo(
+      message.message
+    );
+
+  if (!info) {
+    throw new Error(
+      "No supported media found."
+    );
+  }
+
+  const buffer =
+    await downloadMediaMessage(
+      message,
+      "buffer",
+      {},
+      {
+        logger,
+        reuploadRequest:
+          async (m) => {
+            return sock.updateMediaMessage(m);
+          }
+      }
+    );
+
+  return {
+    buffer,
+    ...info
+  };
+}
+
+
+/* =====================================================
+   SEND SAVED MEDIA
+===================================================== */
+
+async function sendWhatsAppMedia(
   sock,
   jid,
-  file,
-  url
+  media
 ) {
-  try {
-    const stat =
-      fs.statSync(file);
 
-    const maxSize =
-      90 * 1024 * 1024;
+  const {
+    buffer,
+    mediaType,
+    content
+  } = media;
 
-    if (
-      stat.size >
-      maxSize
-    ) {
-      await sock.sendMessage(
-        jid,
-        {
-          text:
-            "❌ Downloaded file is too large for this bot."
-        }
-      );
+  const caption =
+    content?.caption ||
+    "";
 
-      return false;
-    }
+  if (
+    !Buffer.isBuffer(buffer) ||
+    !buffer.length
+  ) {
+    throw new Error(
+      "Media buffer is empty."
+    );
+  }
 
-    const buffer =
-      fs.readFileSync(file);
+  if (
+    buffer.length >
+    100 * 1024 * 1024
+  ) {
+    throw new Error(
+      "Media is too large to send."
+    );
+  }
 
-    const ext =
-      path.extname(file)
-        .toLowerCase();
+  if (mediaType === "image") {
 
-    let message;
+    await sock.sendMessage(
+      jid,
+      {
+        image: buffer,
+        caption
+      }
+    );
 
-    if (
-      [
-        ".mp4",
-        ".mkv",
-        ".webm",
-        ".mov"
-      ].includes(ext)
-    ) {
-      message = {
+    return;
+  }
+
+  if (mediaType === "video") {
+
+    await sock.sendMessage(
+      jid,
+      {
         video: buffer,
-        mimetype:
-          "video/mp4",
-        caption:
-          `🎬 Downloaded by DIMUWA BOT\n\n${url}`
-      };
-    }
+        caption
+      }
+    );
 
-    else if (
-      [
-        ".mp3",
-        ".m4a",
-        ".aac",
-        ".wav",
-        ".ogg"
-      ].includes(ext)
-    ) {
-      message = {
+    return;
+  }
+
+  if (mediaType === "audio") {
+
+    await sock.sendMessage(
+      jid,
+      {
         audio: buffer,
         mimetype:
-          "audio/mpeg"
-      };
-    }
+          content?.mimetype ||
+          "audio/mp4",
+        ptt: !!content?.ptt
+      }
+    );
 
-    else {
-      message = {
+    return;
+  }
+
+  if (mediaType === "sticker") {
+
+    await sock.sendMessage(
+      jid,
+      {
+        sticker: buffer
+      }
+    );
+
+    return;
+  }
+
+  if (mediaType === "document") {
+
+    await sock.sendMessage(
+      jid,
+      {
         document: buffer,
-        fileName:
-          `dimuwa${ext || ".bin"}`,
         mimetype:
-          "application/octet-stream"
-      };
-    }
-
-    await sock.sendMessage(
-      jid,
-      message
-    );
-
-    return true;
-
-  } catch (error) {
-    console.error(
-      "Downloaded send error:",
-      error.message
-    );
-
-    return false;
-
-  } finally {
-    try {
-      fs.unlinkSync(file);
-    } catch {}
-  }
-}
-
-/* =========================================================
-   URL COMMAND
-========================================================= */
-
-async function handleDownloader(
-  sock,
-  jid,
-  command,
-  text
-) {
-  const url =
-    extractUrl(text);
-
-  if (!url) {
-    await sock.sendMessage(
-      jid,
-      {
-        text:
-          `❌ Please send a URL.\n\nExample:\n.${command} https://...`
+          content?.mimetype ||
+          "application/octet-stream",
+        fileName:
+          content?.fileName ||
+          "DIMUWA_FILE"
       }
     );
 
     return;
   }
 
-  await sock.sendMessage(
-    jid,
-    {
-      text:
-        "⏳ Downloading...\nPlease wait."
-    }
+  throw new Error(
+    "Unsupported media type."
   );
-
-  const file =
-    await downloadWithYtDlp(
-      url
-    );
-
-  if (!file) {
-    await sock.sendMessage(
-      jid,
-      {
-        text:
-          "❌ Download failed.\n\nThis URL may not be supported, private, age-restricted, login-required, or temporarily unavailable."
-      }
-    );
-
-    return;
-  }
-
-  const sent =
-    await sendDownloadedFile(
-      sock,
-      jid,
-      file,
-      url
-    );
-
-  if (!sent) {
-    await sock.sendMessage(
-      jid,
-      {
-        text:
-          "❌ Could not send downloaded media."
-      }
-    );
-  }
 }
 
-/* =========================================================
-   MESSAGE HANDLER
-========================================================= */
 
-async function handleMessage(
+/* =====================================================
+   .VV
+===================================================== */
+
+async function handleViewOnce(
   sock,
   username,
   msg
 ) {
-  if (!msg?.message) {
+
+  const quoted =
+    getQuotedMessage(msg);
+
+  if (!quoted) {
+
+    await sock.sendMessage(
+      msg.key.remoteJid,
+      {
+        text:
+          "❌ Reply to a View Once image/video/audio with .vv"
+      }
+    );
+
+    return;
+  }
+
+  try {
+
+    const media =
+      await downloadWhatsAppMedia(
+        sock,
+        quoted
+      );
+
+    const settings =
+      getSettings(username);
+
+    const target =
+      settings.vvTarget === "PRIVATE"
+        ? getOwnerJid(sock)
+        : msg.key.remoteJid;
+
+    if (!target) {
+      throw new Error(
+        "Owner inbox is not available."
+      );
+    }
+
+    await sendWhatsAppMedia(
+      sock,
+      target,
+      media
+    );
+
+    await sock.sendMessage(
+      msg.key.remoteJid,
+      {
+        text:
+          "✅ View Once media saved successfully."
+      }
+    );
+
+  } catch (error) {
+
+    logger.error({
+      error: error.message
+    }, ".vv error");
+
+    await sock.sendMessage(
+      msg.key.remoteJid,
+      {
+        text:
+          `❌ .vv failed\n\n${error.message}`
+      }
+    );
+  }
+}
+
+
+/* =====================================================
+   .SAVE
+===================================================== */
+
+async function handleSave(
+  sock,
+  username,
+  msg
+) {
+
+  const quoted =
+    getQuotedMessage(msg);
+
+  const targetMessage =
+    quoted || msg;
+
+  try {
+
+    const media =
+      await downloadWhatsAppMedia(
+        sock,
+        targetMessage
+      );
+
+    const settings =
+      getSettings(username);
+
+    const target =
+      settings.saveTarget === "PRIVATE"
+        ? getOwnerJid(sock)
+        : msg.key.remoteJid;
+
+    if (!target) {
+      throw new Error(
+        "Owner inbox is not available."
+      );
+    }
+
+    await sendWhatsAppMedia(
+      sock,
+      target,
+      media
+    );
+
+    if (
+      target !== msg.key.remoteJid
+    ) {
+
+      await sock.sendMessage(
+        msg.key.remoteJid,
+        {
+          text:
+            "✅ Media saved to My Inbox."
+        }
+      );
+
+    }
+
+  } catch (error) {
+
+    logger.error({
+      error: error.message
+    }, ".save error");
+
+    await sock.sendMessage(
+      msg.key.remoteJid,
+      {
+        text:
+          `❌ .save failed\n\nReply to an image, video, audio, document or sticker.\n\n${error.message}`
+      }
+    );
+  }
+}
+
+
+/* =====================================================
+   YT-DLP STANDALONE
+===================================================== */
+
+function ytDlpBinaryName() {
+
+  if (
+    process.platform !==
+    "linux"
+  ) {
+
+    throw new Error(
+      "This Railway downloader is designed for Linux."
+    );
+  }
+
+  if (
+    process.arch === "x64"
+  ) {
+    return "yt-dlp_linux";
+  }
+
+  if (
+    process.arch === "arm64"
+  ) {
+    return "yt-dlp_linux_aarch64";
+  }
+
+  throw new Error(
+    `Unsupported CPU architecture: ${process.arch}`
+  );
+}
+
+
+function ytDlpDownloadUrl() {
+
+  return (
+    "https://github.com/yt-dlp/yt-dlp/releases/latest/download/" +
+    ytDlpBinaryName()
+  );
+}
+
+
+function downloadFile(
+  url,
+  destination
+) {
+
+  return new Promise(
+    (resolve, reject) => {
+
+      const request =
+        https.get(
+          url,
+          {
+            headers: {
+              "User-Agent":
+                "DIMUWA-MINI-BOT/5.0"
+            }
+          },
+          (response) => {
+
+            if (
+              response.statusCode >= 300 &&
+              response.statusCode < 400 &&
+              response.headers.location
+            ) {
+
+              response.resume();
+
+              return downloadFile(
+                response.headers.location,
+                destination
+              )
+                .then(resolve)
+                .catch(reject);
+            }
+
+            if (
+              response.statusCode !== 200
+            ) {
+
+              response.resume();
+
+              reject(
+                new Error(
+                  `Download failed: HTTP ${response.statusCode}`
+                )
+              );
+
+              return;
+            }
+
+            const file =
+              fs.createWriteStream(
+                destination
+              );
+
+            response.pipe(file);
+
+            file.on(
+              "finish",
+              () => {
+
+                file.close(
+                  () => resolve()
+                );
+
+              }
+            );
+
+            file.on(
+              "error",
+              reject
+            );
+
+          }
+        );
+
+      request.on(
+        "error",
+        reject
+      );
+
+      request.setTimeout(
+        120000,
+        () => {
+
+          request.destroy(
+            new Error(
+              "yt-dlp download timed out."
+            )
+          );
+
+        }
+      );
+    }
+  );
+}
+
+
+async function ensureYtDlp() {
+
+  const binary =
+    path.join(
+      TOOLS_DIR,
+      "yt-dlp"
+    );
+
+  if (
+    fs.existsSync(binary)
+  ) {
+
+    try {
+
+      await fsp.access(
+        binary,
+        fs.constants.X_OK
+      );
+
+      return binary;
+
+    } catch {
+      // Re-download.
+    }
+  }
+
+  const temp =
+    `${binary}.download`;
+
+  logger.info(
+    "Downloading standalone yt-dlp..."
+  );
+
+  await downloadFile(
+    ytDlpDownloadUrl(),
+    temp
+  );
+
+  await fsp.chmod(
+    temp,
+    0o755
+  );
+
+  await fsp.rename(
+    temp,
+    binary
+  );
+
+  logger.info(
+    "Standalone yt-dlp ready."
+  );
+
+  return binary;
+}
+
+
+/* =====================================================
+   DOWNLOADER URL CHECK
+===================================================== */
+
+function extractHttpUrl(text) {
+
+  if (!text) {
+    return null;
+  }
+
+  const match =
+    text.match(
+      /https?:\/\/[^\s]+/i
+    );
+
+  if (!match) {
+    return null;
+  }
+
+  return match[0]
+    .replace(/[)>]+$/g, "");
+}
+
+
+function isSupportedDownloaderUrl(
+  url
+) {
+
+  try {
+
+    const parsed =
+      new URL(url);
+
+    const host =
+      parsed.hostname
+        .toLowerCase()
+        .replace(/^www\./, "");
+
+    return (
+      host.includes("tiktok.com") ||
+      host.includes("vm.tiktok.com") ||
+      host.includes("youtube.com") ||
+      host === "youtu.be" ||
+      host.includes("facebook.com") ||
+      host === "fb.watch"
+    );
+
+  } catch {
+
+    return false;
+  }
+}
+
+
+/* =====================================================
+   DOWNLOADER
+===================================================== */
+
+async function downloadSocialMedia(
+  username,
+  url
+) {
+
+  const ytDlp =
+    await ensureYtDlp();
+
+  const jobId =
+    crypto
+      .randomBytes(8)
+      .toString("hex");
+
+  const outputTemplate =
+    path.join(
+      MEDIA_DIR,
+      `${jobId}.%(ext)s`
+    );
+
+  const args = [
+    "--no-playlist",
+    "--no-warnings",
+    "--no-progress",
+    "--restrict-filenames",
+    "--geo-bypass",
+    "--max-filesize",
+    "100M",
+
+    "-f",
+    "best[ext=mp4]/best",
+
+    "-o",
+    outputTemplate,
+
+    "--print",
+    "after_move:filepath",
+
+    url
+  ];
+
+  logger.info({
+    url
+  }, "Downloading media");
+
+  let stdout = "";
+  let stderr = "";
+
+  try {
+
+    const result =
+      await execFileAsync(
+        ytDlp,
+        args,
+        {
+          timeout:
+            180000,
+          maxBuffer:
+            10 * 1024 * 1024
+        }
+      );
+
+    stdout =
+      result.stdout || "";
+
+    stderr =
+      result.stderr || "";
+
+  } catch (error) {
+
+    stdout =
+      error.stdout || "";
+
+    stderr =
+      error.stderr || "";
+
+    logger.error({
+      error:
+        error.message,
+      stderr
+    }, "yt-dlp failed");
+
+    throw new Error(
+      getDownloaderError(
+        stderr ||
+        error.message
+      )
+    );
+  }
+
+  const printed =
+    stdout
+      .split(/\r?\n/)
+      .map(
+        x => x.trim()
+      )
+      .filter(Boolean);
+
+  let outputFile =
+    printed.length
+      ? printed[printed.length - 1]
+      : "";
+
+  if (
+    !outputFile ||
+    !fs.existsSync(outputFile)
+  ) {
+
+    const candidates =
+      await fsp.readdir(
+        MEDIA_DIR
+      );
+
+    const candidate =
+      candidates
+        .filter(
+          name =>
+            name.startsWith(
+              `${jobId}.`
+            )
+        )
+        .map(
+          name =>
+            path.join(
+              MEDIA_DIR,
+              name
+            )
+        )
+        .find(
+          file =>
+            fs.existsSync(file)
+        );
+
+    outputFile =
+      candidate || "";
+  }
+
+  if (
+    !outputFile ||
+    !fs.existsSync(outputFile)
+  ) {
+
+    throw new Error(
+      "Downloader completed but no media file was created."
+    );
+  }
+
+  return outputFile;
+}
+
+
+function getDownloaderError(
+  text
+) {
+
+  const value =
+    String(text || "");
+
+  if (
+    /private|login required|sign in/i
+      .test(value)
+  ) {
+
+    return (
+      "This media is private or requires login."
+    );
+  }
+
+  if (
+    /unsupported URL/i
+      .test(value)
+  ) {
+
+    return (
+      "This URL is not supported."
+    );
+  }
+
+  if (
+    /video unavailable|not available/i
+      .test(value)
+  ) {
+
+    return (
+      "This video is unavailable."
+    );
+  }
+
+  if (
+    /max-filesize/i
+      .test(value)
+  ) {
+
+    return (
+      "The media is too large."
+    );
+  }
+
+  return (
+    "Unable to download this media."
+  );
+}
+
+
+/* =====================================================
+   SEND DOWNLOADED FILE
+===================================================== */
+
+async function sendDownloadedFile(
+  sock,
+  jid,
+  file
+) {
+
+  const stat =
+    await fsp.stat(file);
+
+  if (
+    stat.size >
+    100 * 1024 * 1024
+  ) {
+
+    throw new Error(
+      "Downloaded file is too large."
+    );
+  }
+
+  const ext =
+    path.extname(file)
+      .toLowerCase();
+
+  const data =
+    await fsp.readFile(file);
+
+  const videoExts = [
+    ".mp4",
+    ".mkv",
+    ".webm",
+    ".mov",
+    ".avi"
+  ];
+
+  const audioExts = [
+    ".mp3",
+    ".m4a",
+    ".aac",
+    ".ogg",
+    ".opus",
+    ".wav",
+    ".webm"
+  ];
+
+  if (
+    videoExts.includes(ext) &&
+    ext !== ".webm"
+  ) {
+
+    await sock.sendMessage(
+      jid,
+      {
+        video: data,
+        mimetype:
+          ext === ".mp4"
+            ? "video/mp4"
+            : "video/*",
+        caption:
+          "✅ DIMUWA DOWNLOADER"
+      }
+    );
+
     return;
   }
 
   if (
-    msg.key.fromMe
+    audioExts.includes(ext) &&
+    ext !== ".webm"
+  ) {
+
+    await sock.sendMessage(
+      jid,
+      {
+        audio: data,
+        mimetype:
+          ext === ".mp3"
+            ? "audio/mpeg"
+            : "audio/mp4"
+      }
+    );
+
+    return;
+  }
+
+  await sock.sendMessage(
+    jid,
+    {
+      document: data,
+      mimetype:
+        "application/octet-stream",
+      fileName:
+        path.basename(file)
+    }
+  );
+}
+
+
+/* =====================================================
+   HANDLE DOWNLOADER
+===================================================== */
+
+async function handleDownloader(
+  sock,
+  username,
+  msg,
+  text
+) {
+
+  const url =
+    extractHttpUrl(text);
+
+  if (
+    !url ||
+    !isSupportedDownloaderUrl(url)
+  ) {
+    return false;
+  }
+
+  try {
+
+    await sock.sendMessage(
+      msg.key.remoteJid,
+      {
+        text:
+          "⏳ Downloading media...\nPlease wait."
+      }
+    );
+
+    const file =
+      await downloadSocialMedia(
+        username,
+        url
+      );
+
+    await sendDownloadedFile(
+      sock,
+      msg.key.remoteJid,
+      file
+    );
+
+    incrementStat(
+      username,
+      "downloads"
+    );
+
+    await fsp.unlink(
+      file
+    ).catch(() => {});
+
+  } catch (error) {
+
+    logger.error({
+      error: error.message,
+      url
+    }, "Downloader error");
+
+    await sock.sendMessage(
+      msg.key.remoteJid,
+      {
+        text:
+          `❌ Download failed\n\n${error.message}`
+      }
+    );
+  }
+
+  return true;
+}
+
+
+/* =====================================================
+   ANTI DELETE
+===================================================== */
+
+async function handleDeletedMessages(
+  username,
+  sock,
+  deletedKeys
+) {
+
+  const settings =
+    getSettings(username);
+
+  if (
+    settings.antiDelete !== "ON"
   ) {
     return;
   }
 
-  const from =
-    msg.key.remoteJid;
-
-  if (!from) {
+  if (!Array.isArray(
+    deletedKeys
+  )) {
     return;
   }
 
+  for (
+    const key of deletedKeys
+  ) {
+
+    try {
+
+      const cached =
+        getCachedMessage(key);
+
+      if (!cached) {
+        continue;
+      }
+
+      const target =
+        settings.antiDelTarget === "PRIVATE"
+          ? getOwnerJid(sock)
+          : key.remoteJid;
+
+      if (!target) {
+        continue;
+      }
+
+      const text =
+        getMessageText(cached);
+
+      const media =
+        getMediaInfo(
+          cached.message
+        );
+
+      if (media) {
+
+        try {
+
+          const downloaded =
+            await downloadWhatsAppMedia(
+              sock,
+              cached
+            );
+
+          await sendWhatsAppMedia(
+            sock,
+            target,
+            downloaded
+          );
+
+        } catch {
+
+          await sock.sendMessage(
+            target,
+            {
+              text:
+                `🗑️ DELETED MEDIA\n\nType: ${media.mediaType}`
+            }
+          );
+        }
+
+      } else if (text) {
+
+        await sock.sendMessage(
+          target,
+          {
+            text:
+              `🗑️ DELETED MESSAGE\n\n${text}`
+          }
+        );
+
+      } else {
+
+        try {
+
+          await sock.sendMessage(
+            target,
+            {
+              forward:
+                cached
+            }
+          );
+
+        } catch {
+
+          await sock.sendMessage(
+            target,
+            {
+              text:
+                "🗑️ A message was deleted."
+            }
+          );
+        }
+      }
+
+    } catch (error) {
+
+      logger.error({
+        error: error.message
+      }, "Anti-delete error");
+
+    }
+  }
+}
+
+
+/* =====================================================
+   STATUS HANDLER
+===================================================== */
+
+async function handleStatus(
+  username,
+  sock,
+  msg
+) {
+
   if (
-    from ===
+    msg.key?.remoteJid !==
     "status@broadcast"
   ) {
     return;
@@ -1669,1029 +2313,1435 @@ async function handleMessage(
   const settings =
     getSettings(username);
 
-  increaseMessageCount(
-    username
-  );
-
-  cacheMessage(msg);
-
-  /*
-    AUTO READ
-  */
+  const participant =
+    msg.key?.participant ||
+    msg.participant;
 
   if (
-    settings.autoRead ===
-    "ON"
-  ) {
-    try {
-      await sock.readMessages([
-        msg.key
-      ]);
-    } catch {}
-  }
-
-  /*
-    BOT MODE
-  */
-
-  if (
-    !isAllowedChat(
-      sock,
-      username,
-      from
-    )
+    !participant
   ) {
     return;
   }
 
+  if (
+    settings.statusRead === "ON"
+  ) {
+
+    await sock.readMessages([
+      msg.key
+    ]).catch(() => {});
+
+  }
+
+  if (
+    settings.statusReact === "OFF"
+  ) {
+    return;
+  }
+
+  let emoji =
+    "💚";
+
+  if (
+    settings.statusReact ===
+    "RANDOM"
+  ) {
+
+    emoji =
+      statusReactList[
+        Math.floor(
+          Math.random() *
+          statusReactList.length
+        )
+      ];
+
+  }
+
+  await sock.sendMessage(
+    "status@broadcast",
+    {
+      react: {
+        text: emoji,
+        key: msg.key
+      }
+    },
+    {
+      statusJidList: [
+        participant
+      ]
+    }
+  ).catch(
+    error => {
+      logger.error({
+        error: error.message
+      }, "Status reaction error");
+    }
+  );
+}
+
+
+/* =====================================================
+   PRESENCE
+===================================================== */
+
+async function applyPresence(
+  username,
+  sock
+) {
+
+  const settings =
+    getSettings(username);
+
+  if (
+    settings.alwaysOnline === "ON"
+  ) {
+
+    await sock.sendPresenceUpdate(
+      "available"
+    ).catch(() => {});
+
+  } else {
+
+    await sock.sendPresenceUpdate(
+      "unavailable"
+    ).catch(() => {});
+
+  }
+}
+
+
+async function startComposing(
+  username,
+  sock,
+  jid
+) {
+
+  const settings =
+    getSettings(username);
+
+  if (
+    settings.composing !== "ON"
+  ) {
+    return;
+  }
+
+  await sock.sendPresenceUpdate(
+    "composing",
+    jid
+  ).catch(() => {});
+
+}
+
+
+/* =====================================================
+   MAIN MESSAGE HANDLER
+===================================================== */
+
+async function handleMessage(
+  username,
+  sock,
+  msg
+) {
+
+  if (
+    !msg ||
+    !msg.message ||
+    !msg.key
+  ) {
+    return;
+  }
+
+  if (
+    isStatusJid(
+      msg.key.remoteJid
+    )
+  ) {
+
+    await handleStatus(
+      username,
+      sock,
+      msg
+    );
+
+    return;
+  }
+
+  if (
+    msg.key.remoteJid ===
+    "broadcast"
+  ) {
+    return;
+  }
+
+  cacheMessage(msg);
+
+  incrementStat(
+    username,
+    "messages"
+  );
+
+  const settings =
+    getSettings(username);
+
+  if (
+    settings.autoRead === "ON" &&
+    !msg.key.fromMe
+  ) {
+
+    await sock.readMessages([
+      msg.key
+    ]).catch(() => {});
+
+  }
+
   const text =
-    getText(msg)
+    getMessageText(msg)
       .trim();
 
   if (!text) {
     return;
   }
 
-  const lower =
-    text.toLowerCase();
 
-  /*
-    .menu
-  */
+  /* -----------------------------------------
+     OWNER SETTINGS CODES
+  ----------------------------------------- */
 
-  if (
-    lower === ".menu" ||
-    lower === ".help"
-  ) {
-    await sendMenu(
+  const settingCode =
+    text.match(
+      /^\s*(\d{1,2}\.\d)\s*$/
+    );
+
+  if (settingCode) {
+
+    await processSettingsCode(
       sock,
-      from
-    );
-
-    return;
-  }
-
-  /*
-    .alive
-  */
-
-  if (
-    lower === ".alive"
-  ) {
-    await sock.sendMessage(
-      from,
-      {
-        text:
-          "🟢 *DIMUWA BOT ONLINE*\n\n⚡ Status: Active\n🤖 Bot: Running\n☁️ Railway: Connected"
-      }
-    );
-
-    return;
-  }
-
-  /*
-    .status
-  */
-
-  if (
-    lower === ".status"
-  ) {
-    await sock.sendMessage(
-      from,
-      {
-        text:
-          "🟢 *BOT STATUS*\n\n" +
-          `Bot Power: ${settings.botPower}\n` +
-          `Mode: ${settings.botMode}\n` +
-          `Auto Read: ${settings.autoRead}\n` +
-          `Status Read: ${settings.statusRead}\n` +
-          `Status React: ${settings.statusReact}\n` +
-          `Anti Delete: ${settings.antiDelete}\n` +
-          `VV Target: ${settings.vvTarget}\n` +
-          `SAVE Target: ${settings.saveTarget}`
-      }
-    );
-
-    return;
-  }
-
-  /*
-    .settings
-  */
-
-  if (
-    lower === ".settings" ||
-    lower.startsWith(".settings ")
-  ) {
-    await processSettingsCommand(
-      sock,
-      from,
       username,
-      text
+      msg,
+      settingCode[1]
     );
 
     return;
   }
 
-  /*
-    .vv
-  */
+
+  /* -----------------------------------------
+     BOT POWER OFF
+  ----------------------------------------- */
 
   if (
-    lower === ".vv"
+    settings.botPower !== "ON"
   ) {
-    const destination =
-      getTargetJid(
-        sock,
-        from,
-        settings.vvTarget
-      );
 
-    if (!destination) {
+    return;
+  }
+
+
+  /* -----------------------------------------
+     BOT MODE
+  ----------------------------------------- */
+
+  if (
+    !canProcessMessage(
+      sock,
+      username,
+      msg
+    )
+  ) {
+    return;
+  }
+
+
+  /* -----------------------------------------
+     COMPOSING
+  ----------------------------------------- */
+
+  await startComposing(
+    username,
+    sock,
+    msg.key.remoteJid
+  );
+
+
+  /* -----------------------------------------
+     COMMAND
+  ----------------------------------------- */
+
+  const command =
+    text
+      .split(/\s+/)[0]
+      .toLowerCase();
+
+  if (
+    command.startsWith(".")
+  ) {
+
+    incrementStat(
+      username,
+      "commands"
+    );
+  }
+
+
+  /* -----------------------------------------
+     MENU
+  ----------------------------------------- */
+
+  if (
+    command === ".menu" ||
+    command === ".help"
+  ) {
+
+    await sock.sendMessage(
+      msg.key.remoteJid,
+      {
+        text:
+          menuText()
+      }
+    );
+
+    return;
+  }
+
+
+  /* -----------------------------------------
+     ALIVE
+  ----------------------------------------- */
+
+  if (
+    command === ".alive"
+  ) {
+
+    await sock.sendMessage(
+      msg.key.remoteJid,
+      {
+        text:
+          aliveText(username)
+      }
+    );
+
+    return;
+  }
+
+
+  /* -----------------------------------------
+     STATUS
+  ----------------------------------------- */
+
+  if (
+    command === ".status"
+  ) {
+
+    await sock.sendMessage(
+      msg.key.remoteJid,
+      {
+        text:
+          statusText(
+            username,
+            sock
+          )
+      }
+    );
+
+    return;
+  }
+
+
+  /* -----------------------------------------
+     SETTINGS
+  ----------------------------------------- */
+
+  if (
+    command === ".settings"
+  ) {
+
+    const owner =
+      getOwnerJid(sock);
+
+    const sender =
+      msg.key.participant ||
+      msg.key.remoteJid;
+
+    if (
+      owner &&
+      (
+        msg.key.fromMe ||
+        jidNumber(sender) ===
+        jidNumber(owner)
+      )
+    ) {
+
       await sock.sendMessage(
-        from,
+        msg.key.remoteJid,
         {
           text:
-            "❌ Owner/private chat is not available yet."
+            settingsMenu(
+              username
+            )
         }
       );
 
+    } else {
+
+      await sock.sendMessage(
+        msg.key.remoteJid,
+        {
+          text:
+            "❌ .settings is available only for bot owner."
+        }
+      );
+    }
+
+    return;
+  }
+
+
+  /* -----------------------------------------
+     .VV
+  ----------------------------------------- */
+
+  if (
+    command === ".vv" ||
+    command === ".viewonce"
+  ) {
+
+    await handleViewOnce(
+      sock,
+      username,
+      msg
+    );
+
+    return;
+  }
+
+
+  /* -----------------------------------------
+     .SAVE
+  ----------------------------------------- */
+
+  if (
+    command === ".save"
+  ) {
+
+    await handleSave(
+      sock,
+      username,
+      msg
+    );
+
+    return;
+  }
+
+
+  /* -----------------------------------------
+     DOWNLOADER
+  ----------------------------------------- */
+
+  if (
+    extractHttpUrl(text)
+  ) {
+
+    const handled =
+      await handleDownloader(
+        sock,
+        username,
+        msg,
+        text
+      );
+
+    if (handled) {
       return;
     }
-
-    const result =
-      await sendQuotedMedia(
-        sock,
-        msg,
-        destination
-      );
-
-    if (!result.success) {
-      await sock.sendMessage(
-        from,
-        {
-          text:
-            `❌ ${result.error}`
-        }
-      );
-    }
-
-    return;
   }
 
-  /*
-    .save
-  */
 
-  if (
-    lower === ".save"
-  ) {
-    const destination =
-      getTargetJid(
-        sock,
-        from,
-        settings.saveTarget
-      );
+  /* -----------------------------------------
+     PAUSE COMPOSING
+  ----------------------------------------- */
 
-    if (!destination) {
-      await sock.sendMessage(
-        from,
-        {
-          text:
-            "❌ Owner/private chat is not available yet."
-        }
-      );
-
-      return;
-    }
-
-    const result =
-      await sendQuotedMedia(
-        sock,
-        msg,
-        destination
-      );
-
-    if (!result.success) {
-      await sock.sendMessage(
-        from,
-        {
-          text:
-            `❌ ${result.error}`
-        }
-      );
-    }
-
-    return;
-  }
-
-  /*
-    .tt
-  */
-
-  if (
-    lower.startsWith(".tt ")
-  ) {
-    await handleDownloader(
-      sock,
-      from,
-      "tt",
-      text
-    );
-
-    return;
-  }
-
-  /*
-    .yt
-  */
-
-  if (
-    lower.startsWith(".yt ")
-  ) {
-    await handleDownloader(
-      sock,
-      from,
-      "yt",
-      text
-    );
-
-    return;
-  }
-
-  /*
-    .fb
-  */
-
-  if (
-    lower.startsWith(".fb ")
-  ) {
-    await handleDownloader(
-      sock,
-      from,
-      "fb",
-      text
-    );
-
-    return;
-  }
+  await sock.sendPresenceUpdate(
+    "paused",
+    msg.key.remoteJid
+  ).catch(() => {});
 }
 
-/* =========================================================
-   START BOT
-========================================================= */
+
+/* =====================================================
+   BOT CREATION
+===================================================== */
 
 async function startBot(
   username,
   options = {}
 ) {
-  username =
-    safeUsername(username);
 
-  if (!username) {
-    throw new Error(
-      "Invalid username."
-    );
-  }
-
-  /*
-    Already running
-  */
+  const clean =
+    cleanUsername(username);
 
   if (
-    sockets.has(username)
+    bots.has(clean)
   ) {
-    return sockets.get(
-      username
-    );
+
+    return bots.get(clean);
   }
 
-  const sessionPath =
-    getSessionPath(username);
+  if (
+    startingBots.has(clean)
+  ) {
 
-  fs.mkdirSync(
-    sessionPath,
-    {
-      recursive: true
-    }
-  );
-
-  const {
-    state,
-    saveCreds
-  } =
-    await useMultiFileAuthState(
-      sessionPath
-    );
-
-  let version;
-
-  try {
-    const latest =
-      await fetchLatestWaWebVersion();
-
-    version =
-      latest.version;
-  } catch {
-    version =
-      undefined;
+    return startingBots.get(clean);
   }
 
-  const sockOptions = {
-    auth: state,
-    logger: pino({
-      level: "silent"
-    }),
-    printQRInTerminal: false,
-    browser:
-      Browsers.ubuntu(
-        "Chrome"
-      ),
-    syncFullHistory: false,
-    markOnlineOnConnect: false
-  };
+  const startPromise =
+    (async () => {
 
-  if (version) {
-    sockOptions.version =
-      version;
-  }
+      const authPath =
+        sessionPath(clean);
 
-  const sock =
-    makeWASocket(
-      sockOptions
-    );
-
-  sockets.set(
-    username,
-    sock
-  );
-
-  startTimes.set(
-    username,
-    Date.now()
-  );
-
-  connectionStates.set(
-    username,
-    "connecting"
-  );
-
-  getSettings(username);
-
-  /*
-    Save credentials
-  */
-
-  sock.ev.on(
-    "creds.update",
-    saveCreds
-  );
-
-  /*
-    Connection
-  */
-
-  sock.ev.on(
-    "connection.update",
-    async update => {
-      const {
-        connection,
-        lastDisconnect,
-        qr
-      } = update;
-
-      if (qr) {
-        qrStore.set(
-          username,
-          qr
-        );
-
-        connectionStates.set(
-          username,
-          "qr"
-        );
-      }
-
-      if (
-        connection ===
-        "connecting"
-      ) {
-        connectionStates.set(
-          username,
-          "connecting"
-        );
-      }
-
-      if (
-        connection ===
-        "open"
-      ) {
-        connectionStates.set(
-          username,
-          "open"
-        );
-
-        qrStore.delete(
-          username
-        );
-
-        pairingRequested.delete(
-          username
-        );
-
-        console.log(
-          `[${username}] WhatsApp connected.`
-        );
-
-        /*
-          Always Online
-        */
-
-        const settings =
-          getSettings(
-            username
-          );
-
-        if (
-          settings.alwaysOnline ===
-          "ON"
-        ) {
-          try {
-            await sock.sendPresenceUpdate(
-              "available"
-            );
-          } catch {}
-        }
-      }
-
-      if (
-        connection ===
-        "close"
-      ) {
-        connectionStates.set(
-          username,
-          "closed"
-        );
-
-        sockets.delete(
-          username
-        );
-
-        const statusCode =
-          lastDisconnect
-            ?.error
-            ?.output
-            ?.statusCode;
-
-        const shouldReconnect =
-          statusCode !==
-          DisconnectReason.loggedOut;
-
-        console.log(
-          `[${username}] Connection closed. Reconnect: ${shouldReconnect}`
-        );
-
-        if (
-          shouldReconnect
-        ) {
-          await sleep(3000);
-
-          try {
-            await startBot(
-              username
-            );
-          } catch (error) {
-            console.error(
-              "Reconnect error:",
-              error.message
-            );
-          }
-        }
-      }
-    }
-  );
-
-  /*
-    New messages
-  */
-
-  sock.ev.on(
-    "messages.upsert",
-    async data => {
-      try {
-        const messages =
-          data?.messages || [];
-
-        for (const msg of messages) {
-          if (
-            msg.key?.remoteJid ===
-            "status@broadcast"
-          ) {
-            await handleStatus(
-              sock,
-              username,
-              [msg]
-            );
-
-            continue;
-          }
-
-          await handleMessage(
-            sock,
-            username,
-            msg
-          );
-        }
-      } catch (error) {
-        console.error(
-          "messages.upsert error:",
-          error.message
-        );
-      }
-    }
-  );
-
-  /*
-    Proper delete event
-  */
-
-  sock.ev.on(
-    "messages.delete",
-    async event => {
-      try {
-        const keys =
-          event?.keys ||
-          [];
-
-        for (const key of keys) {
-          await handleDeletedMessage(
-            sock,
-            username,
-            key
-          );
-        }
-      } catch (error) {
-        console.error(
-          "messages.delete error:",
-          error.message
-        );
-      }
-    }
-  );
-
-  return sock;
-}
-
-/* =========================================================
-   RESTORE EXISTING SESSIONS
-========================================================= */
-
-async function restoreExistingSessions() {
-  try {
-    const entries =
-      fs.readdirSync(
-        DATA_DIR,
+      fs.mkdirSync(
+        authPath,
         {
-          withFileTypes: true
+          recursive: true
         }
       );
 
-    const sessions =
-      entries.filter(
-        entry =>
-          entry.isDirectory() &&
-          entry.name.startsWith(
-            "session_"
-          )
+      const {
+        state,
+        saveCreds
+      } =
+        await useMultiFileAuthState(
+          authPath
+        );
+
+      const sock =
+        makeWASocket({
+          auth: state,
+
+          browser:
+            Browsers.ubuntu(
+              "Chrome"
+            ),
+
+          printQRInTerminal:
+            false,
+
+          logger,
+
+          markOnlineOnConnect:
+            false,
+
+          syncFullHistory:
+            false,
+
+          connectTimeoutMs:
+            60000,
+
+          defaultQueryTimeoutMs:
+            60000,
+
+          keepAliveIntervalMs:
+            25000
+        });
+
+      sock.__dimuwaUsername =
+        clean;
+
+      bots.set(
+        clean,
+        sock
       );
 
-    for (const entry of sessions) {
-      const username =
-        entry.name.replace(
-          /^session_/,
-          ""
-        );
+      getSettings(clean);
+      getStats(clean);
 
-      if (!username) {
-        continue;
-      }
 
-      try {
-        console.log(
-          `Restoring session: ${username}`
-        );
+      /* ---------------------------------------
+         CREDENTIALS
+      --------------------------------------- */
 
-        await startBot(
-          username
-        );
+      sock.ev.on(
+        "creds.update",
+        saveCreds
+      );
 
-        await sleep(1500);
 
-      } catch (error) {
-        console.error(
-          `Failed to restore ${username}:`,
-          error.message
-        );
-      }
-    }
-  } catch (error) {
-    console.error(
-      "Session restore error:",
-      error.message
+      /* ---------------------------------------
+         CONNECTION UPDATE
+      --------------------------------------- */
+
+      sock.ev.on(
+        "connection.update",
+        async (update) => {
+
+          const {
+            connection,
+            lastDisconnect,
+            qr
+          } = update;
+
+
+          /* QR */
+
+          if (qr) {
+
+            try {
+
+              qrStore.set(
+                clean,
+                await QRCode.toDataURL(
+                  qr,
+                  {
+                    margin: 2,
+                    width: 500
+                  }
+                )
+              );
+
+            } catch (error) {
+
+              logger.error({
+                error:
+                  error.message
+              }, "QR generation error");
+
+            }
+          }
+
+
+          /* CONNECTED */
+
+          if (
+            connection === "open"
+          ) {
+
+            qrStore.delete(
+              clean
+            );
+
+            pairingStore.delete(
+              clean
+            );
+
+            const stats =
+              getStats(clean);
+
+            stats.connectedAt =
+              Date.now();
+
+            saveStats();
+
+            logger.info({
+              username: clean,
+              user:
+                sock.user?.id
+            }, "DIMUWA bot connected");
+
+
+            await applyPresence(
+              clean,
+              sock
+            );
+
+
+            if (
+              getSettings(clean)
+                .alwaysOnline ===
+              "ON"
+            ) {
+
+              const oldTimer =
+                sock.__presenceTimer;
+
+              if (
+                oldTimer
+              ) {
+                clearInterval(
+                  oldTimer
+                );
+              }
+
+              sock.__presenceTimer =
+                setInterval(
+                  async () => {
+
+                    if (
+                      isConnected(sock) &&
+                      getSettings(clean)
+                        .alwaysOnline ===
+                      "ON"
+                    ) {
+
+                      await sock
+                        .sendPresenceUpdate(
+                          "available"
+                        )
+                        .catch(() => {});
+                    }
+
+                  },
+                  20000
+                );
+            }
+
+            return;
+          }
+
+
+          /* CLOSED */
+
+          if (
+            connection === "close"
+          ) {
+
+            if (
+              sock.__presenceTimer
+            ) {
+
+              clearInterval(
+                sock.__presenceTimer
+              );
+
+              sock.__presenceTimer =
+                null;
+            }
+
+            const code =
+              lastDisconnect
+                ?.error
+                ?.output
+                ?.statusCode;
+
+            logger.warn({
+              username: clean,
+              code
+            }, "WhatsApp connection closed");
+
+
+            bots.delete(
+              clean
+            );
+
+
+            if (
+              code ===
+              DisconnectReason.loggedOut
+            ) {
+
+              qrStore.delete(
+                clean
+              );
+
+              pairingStore.delete(
+                clean
+              );
+
+              logger.warn({
+                username: clean
+              }, "Session logged out");
+
+              return;
+            }
+
+
+            if (
+              code === 440
+            ) {
+
+              logger.warn({
+                username: clean
+              }, "Connection replaced");
+
+              return;
+            }
+
+
+            const reconnectDelay =
+              code === 515
+                ? 1000
+                : code === 408
+                  ? 5000
+                  : 5000;
+
+
+            setTimeout(
+              () => {
+
+                startBot(
+                  clean
+                ).catch(
+                  error => {
+                    logger.error({
+                      error:
+                        error.message,
+                      username:
+                        clean
+                    }, "Reconnect failed");
+                  }
+                );
+
+              },
+              reconnectDelay
+            );
+          }
+
+        }
+      );
+
+
+      /* ---------------------------------------
+         MESSAGES
+      --------------------------------------- */
+
+      sock.ev.on(
+        "messages.upsert",
+        async (event) => {
+
+          const messages =
+            event?.messages || [];
+
+          for (
+            const msg of messages
+          ) {
+
+            try {
+
+              await handleMessage(
+                clean,
+                sock,
+                msg
+              );
+
+            } catch (error) {
+
+              logger.error({
+                username: clean,
+                error:
+                  error.message,
+                stack:
+                  error.stack
+              }, "Message handler error");
+
+            }
+          }
+        }
+      );
+
+
+      /* ---------------------------------------
+         MESSAGE DELETE
+      --------------------------------------- */
+
+      sock.ev.on(
+        "messages.delete",
+        async (event) => {
+
+          try {
+
+            let keys = [];
+
+            if (
+              Array.isArray(event)
+            ) {
+
+              keys = event;
+
+            } else if (
+              Array.isArray(
+                event?.keys
+              )
+            ) {
+
+              keys =
+                event.keys;
+
+            } else if (
+              event?.key
+            ) {
+
+              keys = [
+                event.key
+              ];
+            }
+
+            await handleDeletedMessages(
+              clean,
+              sock,
+              keys
+            );
+
+          } catch (error) {
+
+            logger.error({
+              error:
+                error.message
+            }, "Delete event error");
+
+          }
+        }
+      );
+
+
+      /* ---------------------------------------
+         RETURN
+      --------------------------------------- */
+
+      return sock;
+
+    })();
+
+  startingBots.set(
+    clean,
+    startPromise
+  );
+
+  try {
+
+    return await startPromise;
+
+  } finally {
+
+    startingBots.delete(
+      clean
     );
   }
 }
 
-/* =========================================================
-   API - PAIRING CODE
-========================================================= */
+
+/* =====================================================
+   PAIRING CODE
+===================================================== */
+
+async function getPairingCode(
+  username,
+  phone
+) {
+
+  const clean =
+    cleanUsername(username);
+
+  const number =
+    normalizePhone(phone);
+
+  if (
+    !number ||
+    number.length < 8
+  ) {
+
+    throw new Error(
+      "Valid WhatsApp phone number required. Use country code without +."
+    );
+  }
+
+  let sock =
+    bots.get(clean);
+
+  if (!sock) {
+
+    sock =
+      await startBot(
+        clean,
+        {
+          pairing: true
+        }
+      );
+  }
+
+  if (
+    isConnected(sock)
+  ) {
+
+    return {
+      connected: true,
+      message:
+        "This bot is already connected."
+    };
+  }
+
+  pairingStore.set(
+    clean,
+    number
+  );
+
+  /*
+    Baileys pairing code requires
+    digits only and country code.
+  */
+
+  await new Promise(
+    resolve =>
+      setTimeout(
+        resolve,
+        1500
+      )
+  );
+
+  if (
+    isConnected(sock)
+  ) {
+
+    return {
+      connected: true,
+      message:
+        "This bot is already connected."
+    };
+  }
+
+  const code =
+    await sock.requestPairingCode(
+      number
+    );
+
+  const formatted =
+    String(code)
+      .replace(
+        /(.{4})/g,
+        "$1-"
+      )
+      .replace(
+        /-$/,
+        ""
+      );
+
+  pairingStore.set(
+    clean,
+    number
+  );
+
+  return {
+    connected: false,
+    code: formatted,
+    phone: number
+  };
+}
+
+
+/* =====================================================
+   QR WAIT
+===================================================== */
+
+async function waitForQR(
+  username,
+  timeout = 15000
+) {
+
+  const clean =
+    cleanUsername(username);
+
+  const started =
+    Date.now();
+
+  while (
+    Date.now() -
+    started <
+    timeout
+  ) {
+
+    const qr =
+      qrStore.get(clean);
+
+    if (qr) {
+      return qr;
+    }
+
+    const sock =
+      bots.get(clean);
+
+    if (
+      sock &&
+      isConnected(sock)
+    ) {
+
+      return null;
+    }
+
+    await new Promise(
+      resolve =>
+        setTimeout(
+          resolve,
+          300
+        )
+    );
+  }
+
+  return (
+    qrStore.get(clean) ||
+    null
+  );
+}
+
+
+/* =====================================================
+   DASHBOARD API
+===================================================== */
+
+app.get(
+  "/health",
+  (req, res) => {
+
+    res.json({
+      ok: true,
+      service:
+        "DIMUWA MINI BOT",
+      version:
+        "5.0.0",
+      uptime:
+        process.uptime(),
+      time:
+        new Date().toISOString()
+    });
+
+  }
+);
+
+
+/* -----------------------------------------
+   ROOT
+----------------------------------------- */
+
+app.get(
+  "/",
+  (req, res) => {
+
+    res.sendFile(
+      path.join(
+        __dirname,
+        "index.html"
+      )
+    );
+
+  }
+);
+
+
+/* -----------------------------------------
+   PAIRING CODE
+----------------------------------------- */
 
 app.get(
   "/get-pairing-code",
   async (req, res) => {
+
     try {
+
       const username =
-        safeUsername(
+        cleanUsername(
           req.query.username
         );
 
-      if (!username) {
-        return res.status(400).json({
-          success: false,
-          error:
-            "Username is required."
-        });
-      }
-
-      let sock =
-        sockets.get(
-          username
+      const phone =
+        normalizePhone(
+          req.query.phone
         );
 
-      /*
-        Start socket if not running.
-      */
+      if (!phone) {
 
-      if (!sock) {
-        sock =
-          await startBot(
-            username,
-            {
-              pairing: true
-            }
-          );
-
-        await sleep(2000);
-      }
-
-      /*
-        Already connected
-      */
-
-      if (
-        sock.user?.id &&
-        connectionStates.get(
-          username
-        ) === "open"
-      ) {
-        return res.json({
-          success: false,
-          error:
-            "This bot is already connected."
-        });
-      }
-
-      if (
-        pairingRequested.has(
-          username
-        )
-      ) {
-        return res.json({
-          success: false,
-          error:
-            "Pairing code request already in progress. Wait a few seconds and try again."
-        });
-      }
-
-      pairingRequested.add(
-        username
-      );
-
-      try {
-        const phone =
-          String(
-            req.query.phone ||
-            ""
-          )
-          .replace(
-            /[^0-9]/g,
-            ""
-          );
-
-        if (!phone) {
-          pairingRequested.delete(
-            username
-          );
-
-          return res.status(400).json({
-            success: false,
+        return res.status(400)
+          .json({
+            ok: false,
             error:
-              "Phone number required. Add ?phone=947XXXXXXXX"
+              "Phone number required."
           });
-        }
 
-        if (
-          !sock.authState
-        ) {
-          /*
-            Baileys socket does not expose
-            authState directly in all versions.
-            We therefore rely on state.creds
-            through a temporary auth check below.
-          */
-        }
-
-        const code =
-          await sock.requestPairingCode(
-            phone
-          );
-
-        pairingRequested.delete(
-          username
-        );
-
-        return res.json({
-          success: true,
-          code
-        });
-
-      } catch (error) {
-        pairingRequested.delete(
-          username
-        );
-
-        console.error(
-          "Pairing code error:",
-          error.message
-        );
-
-        return res.status(500).json({
-          success: false,
-          error:
-            error.message ||
-            "Could not generate pairing code."
-        });
       }
+
+      const result =
+        await getPairingCode(
+          username,
+          phone
+        );
+
+      res.json({
+        ok: true,
+        ...result
+      });
 
     } catch (error) {
-      return res.status(500).json({
-        success: false,
+
+      logger.error({
         error:
           error.message
-      });
+      }, "Pairing API error");
+
+      res.status(500)
+        .json({
+          ok: false,
+          error:
+            error.message
+        });
     }
   }
 );
 
-/* =========================================================
-   API - QR
-========================================================= */
+
+/* -----------------------------------------
+   QR
+----------------------------------------- */
 
 app.get(
-  "/get-qr",
+  "/qr",
   async (req, res) => {
+
     try {
+
       const username =
-        safeUsername(
+        cleanUsername(
           req.query.username
         );
 
-      if (!username) {
-        return res.status(400).send(
-          "Username required."
-        );
-      }
-
-      let sock =
-        sockets.get(
-          username
-        );
-
-      if (!sock) {
+      const sock =
         await startBot(
           username
         );
 
-        await sleep(1000);
+      if (
+        isConnected(sock)
+      ) {
 
-        sock =
-          sockets.get(
-            username
-          );
+        return res.json({
+          ok: true,
+          connected: true,
+          qr: null,
+          message:
+            "Bot is already connected."
+        });
+
       }
 
+      qrStore.delete(
+        username
+      );
+
       const qr =
-        qrStore.get(
-          username
+        await waitForQR(
+          username,
+          15000
         );
 
       if (!qr) {
-        return res.status(404).send(
-          "QR not available yet. Wait a few seconds and refresh."
-        );
+
+        return res.status(404)
+          .json({
+            ok: false,
+            error:
+              "QR code not available yet. Try again."
+          });
       }
 
-      const buffer =
-        await QRCode.toBuffer(
-          qr,
-          {
-            type: "png",
-            width: 600,
-            margin: 2
-          }
-        );
-
-      res.setHeader(
-        "Content-Type",
-        "image/png"
-      );
-
-      res.send(buffer);
+      res.json({
+        ok: true,
+        connected: false,
+        qr
+      });
 
     } catch (error) {
-      res.status(500).send(
-        error.message
-      );
+
+      logger.error({
+        error:
+          error.message
+      }, "QR API error");
+
+      res.status(500)
+        .json({
+          ok: false,
+          error:
+            error.message
+        });
     }
   }
 );
 
-/* =========================================================
-   API - DETAILS
-========================================================= */
+
+/* -----------------------------------------
+   DETAILS
+----------------------------------------- */
 
 app.get(
   "/details",
   async (req, res) => {
-    const username =
-      safeUsername(
-        req.query.username
-      );
 
-    if (!username) {
-      return res.json({
-        success: false,
-        error:
-          "Username required."
+    try {
+
+      const username =
+        cleanUsername(
+          req.query.username
+        );
+
+      const sock =
+        bots.get(username);
+
+      const stats =
+        getStats(username);
+
+      const settings =
+        getSettings(username);
+
+      res.json({
+        ok: true,
+
+        status:
+          isConnected(sock)
+            ? "CONNECTED"
+            : "OFFLINE",
+
+        connected:
+          isConnected(sock),
+
+        username,
+
+        phone:
+          jidNumber(
+            sock?.user?.id
+          ) || null,
+
+        name:
+          sock?.user?.name ||
+          sock?.user?.verifiedName ||
+          null,
+
+        pushName:
+          sock?.user?.name ||
+          null,
+
+        jid:
+          sock?.user?.id ||
+          null,
+
+        connectedAt:
+          stats.connectedAt,
+
+        settings
       });
+
+    } catch (error) {
+
+      res.status(500)
+        .json({
+          ok: false,
+          error:
+            error.message
+        });
     }
-
-    const sock =
-      sockets.get(
-        username
-      );
-
-    const settings =
-      getSettings(
-        username
-      );
-
-    const stat =
-      statsStore[username] ||
-      {
-        messages: 0
-      };
-
-    const started =
-      startTimes.get(
-        username
-      );
-
-    const uptime =
-      started
-        ? Math.floor(
-            (Date.now() -
-              started) /
-              1000
-          )
-        : 0;
-
-    res.json({
-      success: true,
-      username,
-      connected:
-        connectionStates.get(
-          username
-        ) === "open",
-      connection:
-        connectionStates.get(
-          username
-        ) || "offline",
-      user:
-        sock?.user || null,
-      messages:
-        stat.messages || 0,
-      uptime,
-      settings
-    });
   }
 );
 
-/* =========================================================
-   API - STATS
-========================================================= */
+
+/* -----------------------------------------
+   STATS
+----------------------------------------- */
 
 app.get(
   "/stats",
-  (req, res) => {
-    res.json({
-      success: true,
-      bots:
-        sockets.size,
-      stats:
-        statsStore
-    });
+  async (req, res) => {
+
+    try {
+
+      const username =
+        cleanUsername(
+          req.query.username
+        );
+
+      const stats =
+        getStats(username);
+
+      const connectedAt =
+        stats.connectedAt;
+
+      const uptime =
+        connectedAt
+          ? Math.max(
+              0,
+              Math.floor(
+                (
+                  Date.now() -
+                  connectedAt
+                ) / 1000
+              )
+            )
+          : 0;
+
+      res.json({
+        ok: true,
+
+        stats: {
+          ...stats,
+          uptime
+        }
+      });
+
+    } catch (error) {
+
+      res.status(500)
+        .json({
+          ok: false,
+          error:
+            error.message
+        });
+    }
   }
 );
 
-/* =========================================================
-   API - LOGOUT
-========================================================= */
+
+/* -----------------------------------------
+   SETTINGS
+----------------------------------------- */
+
+app.get(
+  "/settings",
+  async (req, res) => {
+
+    try {
+
+      const username =
+        cleanUsername(
+          req.query.username
+        );
+
+      res.json({
+        ok: true,
+
+        settings:
+          getSettings(username)
+      });
+
+    } catch (error) {
+
+      res.status(500)
+        .json({
+          ok: false,
+          error:
+            error.message
+        });
+    }
+  }
+);
+
+
+/* -----------------------------------------
+   LOGOUT
+----------------------------------------- */
 
 app.post(
   "/logout",
   async (req, res) => {
+
     try {
+
       const username =
-        safeUsername(
+        cleanUsername(
           req.query.username
         );
 
       const sock =
-        sockets.get(
-          username
-        );
-
-      if (!sock) {
-        return res.json({
-          success: false,
-          error:
-            "Bot is not connected."
-        });
-      }
-
-      try {
-        await sock.logout();
-      } catch {}
-
-      sockets.delete(
-        username
-      );
-
-      connectionStates.set(
-        username,
-        "logged_out"
-      );
-
-      res.json({
-        success: true
-      });
-
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        error:
-          error.message
-      });
-    }
-  }
-);
-
-/* =========================================================
-   API - UNLINK / DELETE SESSION
-========================================================= */
-
-app.post(
-  "/unlink",
-  async (req, res) => {
-    try {
-      const username =
-        safeUsername(
-          req.query.username
-        );
-
-      const sock =
-        sockets.get(
-          username
-        );
+        bots.get(username);
 
       if (sock) {
+
         try {
           await sock.logout();
         } catch {}
       }
 
-      sockets.delete(
+      bots.delete(
         username
       );
 
@@ -2699,18 +3749,15 @@ app.post(
         username
       );
 
-      connectionStates.set(
-        username,
-        "unlinked"
+      pairingStore.delete(
+        username
       );
 
-      const sessionPath =
-        getSessionPath(
-          username
-        );
+      const authPath =
+        sessionPath(username);
 
-      fs.rmSync(
-        sessionPath,
+      await fsp.rm(
+        authPath,
         {
           recursive: true,
           force: true
@@ -2718,78 +3765,309 @@ app.post(
       );
 
       res.json({
-        success: true
+        ok: true,
+        message:
+          "Bot logged out successfully."
       });
 
     } catch (error) {
-      res.status(500).json({
-        success: false,
-        error:
-          error.message
-      });
+
+      res.status(500)
+        .json({
+          ok: false,
+          error:
+            error.message
+        });
     }
   }
 );
 
-/* =========================================================
-   HEALTH CHECK
-========================================================= */
 
-app.get(
-  "/health",
+/* -----------------------------------------
+   UNLINK
+----------------------------------------- */
+
+app.post(
+  "/unlink",
+  async (req, res) => {
+
+    try {
+
+      const username =
+        cleanUsername(
+          req.query.username
+        );
+
+      const sock =
+        bots.get(username);
+
+      if (sock) {
+
+        try {
+          await sock.logout();
+        } catch {}
+      }
+
+      bots.delete(
+        username
+      );
+
+      qrStore.delete(
+        username
+      );
+
+      pairingStore.delete(
+        username
+      );
+
+      const authPath =
+        sessionPath(username);
+
+      await fsp.rm(
+        authPath,
+        {
+          recursive: true,
+          force: true
+        }
+      );
+
+      res.json({
+        ok: true,
+        message:
+          "WhatsApp session unlinked successfully."
+      });
+
+    } catch (error) {
+
+      res.status(500)
+        .json({
+          ok: false,
+          error:
+            error.message
+        });
+    }
+  }
+);
+
+
+/* =====================================================
+   404
+===================================================== */
+
+app.use(
   (req, res) => {
-    res.json({
-      status: "ok",
-      service:
-        "DIMUWA MINI BOT",
-      uptime:
-        process.uptime(),
-      bots:
-        sockets.size
-    });
+
+    if (
+      req.path.startsWith("/api/")
+    ) {
+
+      return res.status(404)
+        .json({
+          ok: false,
+          error:
+            "API endpoint not found."
+        });
+
+    }
+
+    res.status(404)
+      .send(
+        "DIMUWA MINI BOT - Page not found"
+      );
   }
 );
 
-/* =========================================================
-   START SERVER
-========================================================= */
 
-app.listen(
-  PORT,
-  "0.0.0.0",
-  async () => {
-    console.log(
-      `DIMUWA MINI BOT running on port ${PORT}`
-    );
+/* =====================================================
+   SERVER
+===================================================== */
 
-    console.log(
-      `DATA_DIR = ${DATA_DIR}`
-    );
+const server =
+  app.listen(
+    PORT,
+    "0.0.0.0",
+    () => {
 
-    await restoreExistingSessions();
+      logger.info({
+        port: PORT,
+        dataDir: DATA_DIR
+      }, "DIMUWA MINI BOT server started");
+
+    }
+  );
+
+
+/* =====================================================
+   RESTORE EXISTING SESSIONS
+===================================================== */
+
+async function restoreSessions() {
+
+  try {
+
+    if (
+      !fs.existsSync(
+        SESSION_DIR
+      )
+    ) {
+      return;
+    }
+
+    const folders =
+      await fsp.readdir(
+        SESSION_DIR,
+        {
+          withFileTypes: true
+        }
+      );
+
+    for (
+      const folder of folders
+    ) {
+
+      if (
+        !folder.isDirectory()
+      ) {
+        continue;
+      }
+
+      if (
+        !folder.name.startsWith(
+          "session_"
+        )
+      ) {
+        continue;
+      }
+
+      const username =
+        folder.name
+          .replace(
+            /^session_/,
+            ""
+          );
+
+      if (!username) {
+        continue;
+      }
+
+      logger.info({
+        username
+      }, "Restoring bot session");
+
+      startBot(
+        username
+      ).catch(
+        error => {
+
+          logger.error({
+            username,
+            error:
+              error.message
+          }, "Session restore failed");
+
+        }
+      );
+
+      /*
+        Small delay between sessions
+        so multiple sessions don't
+        initialize at exactly the same time.
+      */
+
+      await new Promise(
+        resolve =>
+          setTimeout(
+            resolve,
+            500
+          )
+      );
+    }
+
+  } catch (error) {
+
+    logger.error({
+      error:
+        error.message
+    }, "Session restore error");
+
   }
-);
+}
 
-/* =========================================================
-   PROCESS ERROR HANDLING
-========================================================= */
+
+/* =====================================================
+   GRACEFUL SHUTDOWN
+===================================================== */
+
+async function shutdown(
+  signal
+) {
+
+  logger.info(
+    `${signal} received. Shutting down...`
+  );
+
+  for (
+    const [username, sock]
+    of bots
+  ) {
+
+    try {
+
+      if (
+        sock.__presenceTimer
+      ) {
+
+        clearInterval(
+          sock.__presenceTimer
+        );
+
+      }
+
+      logger.info({
+        username
+      }, "Closing bot");
+
+      sock.ws?.close();
+
+    } catch {}
+  }
+
+  server.close(
+    () => {
+      process.exit(0);
+    }
+  );
+
+  setTimeout(
+    () => process.exit(0),
+    5000
+  );
+}
+
 
 process.on(
-  "uncaughtException",
-  error => {
-    console.error(
-      "UNCAUGHT EXCEPTION:",
-      error
-    );
-  }
+  "SIGTERM",
+  () => shutdown("SIGTERM")
 );
 
 process.on(
-  "unhandledRejection",
-  error => {
-    console.error(
-      "UNHANDLED REJECTION:",
-      error
-    );
-  }
+  "SIGINT",
+  () => shutdown("SIGINT")
 );
+
+
+/* =====================================================
+   START
+===================================================== */
+
+restoreSessions()
+  .catch(
+    error => {
+
+      logger.error({
+        error:
+          error.message
+      }, "Startup restore error");
+
+    }
+  );
