@@ -1,3 +1,12 @@
+DIMUWA MINI BOT — COMBINED FILE
+
+IMPORTANT:
+This is a combined text file for easier downloading/copying.
+For Railway/GitHub deployment, save the first section as index.js
+and the second section as package.json. Do NOT upload this .txt as the only bot file.
+
+========== BEGIN index.js ==========
+
 "use strict";
 
 /*
@@ -27,9 +36,8 @@ Anti-delete cache + protocol fixed
 Status react with statusJidList fixed
 
 .dp, .block, .unblock commands added
-=========================================================
-*/
 
+*/
 
 const express = require("express");
 const cors = require("cors");
@@ -46,50 +54,12 @@ const { promisify } = require("util");
 
 const execFileAsync = promisify(execFile);
 
-// Fetch the live WhatsApp Web client revision instead of relying on
-// Baileys' potentially stale bundled protocol version.
-function fetchLatestWaWebVersion() {
-return new Promise((resolve, reject) => {
-const request = https.get("https://web.whatsapp.com/sw.js", {
-headers: { "User-Agent": "Mozilla/5.0" }
-}, (response) => {
-if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
-response.resume();
-return https.get(response.headers.location, { headers: { "User-Agent": "Mozilla/5.0" } }, (redirectResponse) => {
-let body = "";
-redirectResponse.setEncoding("utf8");
-redirectResponse.on("data", chunk => body += chunk);
-redirectResponse.on("end", () => finishVersionResponse(redirectResponse, body, resolve, reject));
-}).on("error", reject);
-}
-let body = "";
-response.setEncoding("utf8");
-response.on("data", chunk => body += chunk);
-response.on("end", () => finishVersionResponse(response, body, resolve, reject));
-});
-request.on("error", reject);
-request.setTimeout(15000, () => request.destroy(new Error("Timed out fetching current WhatsApp Web version.")));
-});
-}
-
-function finishVersionResponse(response, body, resolve, reject) {
-if (response.statusCode !== 200) {
-reject(new Error(`Could not fetch WhatsApp Web version: HTTP ${response.statusCode}`));
-return;
-}
-const match = body.match(/\bclient_revision\s*[:=]\s*(\d+)/);
-if (!match) {
-reject(new Error("Could not find the current WhatsApp Web client revision in sw.js."));
-return;
-}
-resolve([2, 3000, Number(match[1])]);
-}
-
 const {
 default: makeWASocket,
 useMultiFileAuthState,
 DisconnectReason,
 Browsers,
+fetchLatestBaileysVersion,
 downloadMediaMessage,
 getContentType,
 normalizeMessageContent,
@@ -210,7 +180,7 @@ return fallback;
 
 function writeJson(file, data) {
 try {
-const temp = `${file}.tmp`;
+const temp = ${file}.tmp;
 fs.writeFileSync(temp, JSON.stringify(data, null, 2), "utf8");
 fs.renameSync(temp, file);
 } catch (error) {
@@ -233,7 +203,7 @@ return String(username || "default")
 }
 
 function sessionPath(username) {
-return path.join(SESSION_DIR, `session_${cleanUsername(username)}`);
+return path.join(SESSION_DIR, session_${cleanUsername(username)});
 }
 
 // True only once this username has an actual linked WhatsApp session
@@ -310,7 +280,7 @@ return String(jid).split("@")[0].split(":")[0].replace(/\D/g, "");
 function jidFromPhone(phone) {
 const number = String(phone || "").replace(/\D/g, "");
 if (!number) return null;
-return `${number}@s.whatsapp.net`;
+return ${number}@s.whatsapp.net;
 }
 
 function normalizePhone(phone) {
@@ -371,7 +341,7 @@ return item.message;
 }
 
 for (const [cacheK, cacheItem] of messageCache) {
-if (cacheK.endsWith(`:${key.id}`) || cacheK.includes(`:${key.id}:`)) {
+if (cacheK.endsWith(:${key.id}) || cacheK.includes(:${key.id}:)) {
 if (Date.now() - cacheItem.savedAt > CACHE_TTL) {
 messageCache.delete(cacheK);
 continue;
@@ -640,29 +610,29 @@ if (settings.autoSaveViewOnce !== "ON") return false;
 if (!isViewOnceMessage(msg)) return false;
 if (msg.key?.fromMe) return false;
 
-const owner = getOwnerJid(sock);  
-if (!owner) return false;  
+const owner = getOwnerJid(sock);
+if (!owner) return false;
 
-const sender = msg.key?.participant || msg.key?.remoteJid;  
-if (jidNumber(sender) === jidNumber(owner)) return false;  
+const sender = msg.key?.participant || msg.key?.remoteJid;
+if (jidNumber(sender) === jidNumber(owner)) return false;
 
-logger.info({ username, from: sender }, "Auto-saving view-once media");  
+logger.info({ username, from: sender }, "Auto-saving view-once media");
 
-const media = await downloadViewOnceMedia(sock, msg);  
-const senderName = msg.pushName || jidNumber(sender);  
-const chatType = isGroupJid(msg.key.remoteJid) ? "GROUP" : "PRIVATE";  
+const media = await downloadViewOnceMedia(sock, msg);
+const senderName = msg.pushName || jidNumber(sender);
+const chatType = isGroupJid(msg.key.remoteJid) ? "GROUP" : "PRIVATE";
 
-const caption =  
-  `🔓 *AUTO-SAVED VIEW ONCE* 🔓\n\n` +  
-  `👤 From: ${senderName}\n` +  
-  `📱 Number: ${jidNumber(sender)}\n` +  
-  `💬 Chat: ${chatType}\n` +  
-  `🕐 Time: ${new Date().toLocaleString()}\n\n` +  
-  `🤖 DIMUWA MINI BOT`;  
+const caption =
+🔓 *AUTO-SAVED VIEW ONCE* 🔓\n\n +
+👤 From: ${senderName}\n +
+📱 Number: ${jidNumber(sender)}\n +
+💬 Chat: ${chatType}\n +
+🕐 Time: ${new Date().toLocaleString()}\n\n +
+🤖 DIMUWA MINI BOT;
 
-await sendWhatsAppMedia(sock, owner, { ...media, caption });  
+await sendWhatsAppMedia(sock, owner, { ...media, caption });
 
-logger.info({ username, to: owner }, "View-once auto-saved");  
+logger.info({ username, to: owner }, "View-once auto-saved");
 return true;
 
 } catch (error) {
@@ -692,24 +662,24 @@ media = await downloadViewOnceMedia(sock, quoted);
 media = await downloadWhatsAppMedia(sock, quoted);
 }
 
-const settings = getSettings(username);  
-const target =  
-  settings.vvTarget === "PRIVATE"  
-    ? getOwnerJid(sock)  
-    : msg.key.remoteJid;  
+const settings = getSettings(username);
+const target =
+settings.vvTarget === "PRIVATE"
+? getOwnerJid(sock)
+: msg.key.remoteJid;
 
-if (!target) throw new Error("Owner inbox is not available.");  
+if (!target) throw new Error("Owner inbox is not available.");
 
-await sendWhatsAppMedia(sock, target, media);  
+await sendWhatsAppMedia(sock, target, media);
 
-await sock.sendMessage(msg.key.remoteJid, {  
-  text: "✅ View Once media saved successfully."  
+await sock.sendMessage(msg.key.remoteJid, {
+text: "✅ View Once media saved successfully."
 });
 
 } catch (error) {
 logger.error({ error: error.message }, ".vv error");
 await sock.sendMessage(msg.key.remoteJid, {
-text: `❌ .vv failed\n\n${error.message}`
+text: ❌ .vv failed\n\n${error.message}
 });
 }
 }
@@ -730,26 +700,26 @@ media = await downloadViewOnceMedia(sock, targetMessage);
 media = await downloadWhatsAppMedia(sock, targetMessage);
 }
 
-const settings = getSettings(username);  
-const target =  
-  settings.saveTarget === "PRIVATE"  
-    ? getOwnerJid(sock)  
-    : msg.key.remoteJid;  
+const settings = getSettings(username);
+const target =
+settings.saveTarget === "PRIVATE"
+? getOwnerJid(sock)
+: msg.key.remoteJid;
 
-if (!target) throw new Error("Owner inbox is not available.");  
+if (!target) throw new Error("Owner inbox is not available.");
 
-await sendWhatsAppMedia(sock, target, media);  
+await sendWhatsAppMedia(sock, target, media);
 
-if (target !== msg.key.remoteJid) {  
-  await sock.sendMessage(msg.key.remoteJid, {  
-    text: "✅ Media saved to My Inbox."  
-  });  
+if (target !== msg.key.remoteJid) {
+await sock.sendMessage(msg.key.remoteJid, {
+text: "✅ Media saved to My Inbox."
+});
 }
 
 } catch (error) {
 logger.error({ error: error.message }, ".save error");
 await sock.sendMessage(msg.key.remoteJid, {
-text: `❌ .save failed\n\nReply to an image, video, audio, document or sticker.\n\n${error.message}`
+text: ❌ .save failed\n\nReply to an image, video, audio, document or sticker.\n\n${error.message}
 });
 }
 }
@@ -854,7 +824,7 @@ default: return false;
 if (changed) {
 saveSettings(username, s);
 await sock.sendMessage(msg.key.remoteJid, {
-text: `✅ SETTING UPDATED\n\n${message}\n\nUse .settings to view current settings.`
+text: ✅ SETTING UPDATED\n\n${message}\n\nUse .settings to view current settings.
 });
 if (s.alwaysOnline === "ON") {
 await sock.sendPresenceUpdate("available").catch(() => {});
@@ -926,7 +896,7 @@ logger.error({ error: error.message }, "Menu audio failed.");
 async function handleMenuNumber(sock, username, jid, number, msg) {
 if (number === "1") {
 await sock.sendMessage(jid, {
-text: `📥 *DOWNLOAD MENU*\n\n1️⃣ TikTok\n2️⃣ Facebook\n3️⃣ YouTube\n\nSend:\n.tt <url>\n.fb <url>\n.yt <url>\n\nOr simply send the URL.`
+text: 📥 *DOWNLOAD MENU*\n\n1️⃣ TikTok\n2️⃣ Facebook\n3️⃣ YouTube\n\nSend:\n.tt <url>\n.fb <url>\n.yt <url>\n\nOr simply send the URL.
 }, { quoted: msg });
 return true;
 }
@@ -940,25 +910,25 @@ await sock.sendMessage(jid, { text: "❌ Owner only command." }, { quoted: msg }
 return true;
 }
 await sock.sendMessage(jid, {
-text: `👑 *OWNER COMMANDS*\n\n.ping\n.menu\n.settings\n.dp\n.block\n.unblock\n.logout\n.unlink\n\nBot owner:\n${CREATOR_NAME}\n${CREATOR_PHONE}`
+text: 👑 *OWNER COMMANDS*\n\n.ping\n.menu\n.settings\n.dp\n.block\n.unblock\n.logout\n.unlink\n\nBot owner:\n${CREATOR_NAME}\n${CREATOR_PHONE}
 }, { quoted: msg });
 return true;
 }
 if (number === "4") {
 await sock.sendMessage(jid, {
-text: `🛠️ *UTILITY*\n\nReply to an image/video/audio with:\n\n.vv\n.save\n\n.vv = View / resend media\n.save = Save / resend media\n\n💡 View-once media is auto-saved now!`
+text: 🛠️ *UTILITY*\n\nReply to an image/video/audio with:\n\n.vv\n.save\n\n.vv = View / resend media\n.save = Save / resend media\n\n💡 View-once media is auto-saved now!
 }, { quoted: msg });
 return true;
 }
 if (number === "5") {
 await sock.sendMessage(jid, {
-text: `🎮 *FUN COMMANDS*\n\n🎲 .dice\n🎯 .random\n❤️ .love`
+text: 🎮 *FUN COMMANDS*\n\n🎲 .dice\n🎯 .random\n❤️ .love
 }, { quoted: msg });
 return true;
 }
 if (number === "6") {
 await sock.sendMessage(jid, {
-text: `👥 *GROUP COMMANDS*\n\n.tagall\n\nReply/send in a group to tag members.`
+text: 👥 *GROUP COMMANDS*\n\n.tagall\n\nReply/send in a group to tag members.
 }, { quoted: msg });
 return true;
 }
@@ -967,13 +937,13 @@ return false;
 
 function aliveText(username) {
 const s = getSettings(username);
-return `╭━━〔 🟢 DIMUWA BOT ALIVE 〕━━╮   ┃   ┃ 🤖 Bot: ONLINE   ┃ 👤 User: ${username}   ┃ ⚡ Power: ${s.botPower}   ┃ 📥 Mode: ${s.botMode}   ┃ 🔓 Auto View-Once: ${s.autoSaveViewOnce}   ┃   ┃ © DIMUTH SATHSARA   ╰━━━━━━━━━━━━━━━━━━━━━━╯`;
+return ╭━━〔 🟢 DIMUWA BOT ALIVE 〕━━╮   ┃   ┃ 🤖 Bot: ONLINE   ┃ 👤 User: ${username}   ┃ ⚡ Power: ${s.botPower}   ┃ 📥 Mode: ${s.botMode}   ┃ 🔓 Auto View-Once: ${s.autoSaveViewOnce}   ┃   ┃ © DIMUTH SATHSARA   ╰━━━━━━━━━━━━━━━━━━━━━━╯;
 }
 
 function statusText(username, sock) {
 const s = getSettings(username);
 const stats = getStats(username);
-return `╭━━〔 📊 DIMUWA STATUS 〕━━╮   ┃   ┃ 🤖 Status: ${isConnected(sock) ? "CONNECTED" : "OFFLINE"}   ┃ 👤 Username: ${username}   ┃ 📱 Number: ${jidNumber(sock.user?.id) || "-"}   ┃   ┃ ⚙️ Bot Mode: ${s.botMode}   ┃ 🔌 Bot Power: ${s.botPower}   ┃ 👁 Auto Read: ${s.autoRead}   ┃ 🟢 Always Online: ${s.alwaysOnline}   ┃ 🗑 Anti Delete: ${s.antiDelete}   ┃ 🔓 Auto View-Once: ${s.autoSaveViewOnce}   ┃ 📱 .vv Target: ${s.vvTarget}   ┃ 💾 .save Target: ${s.saveTarget}   ┃   ┃ 💬 Messages: ${stats.messages}   ┃ ⚡ Commands: ${stats.commands}   ┃ 📥 Downloads: ${stats.downloads}   ┃   ╰━━━━━━━━━━━━━━━━━━━━━━╯`;
+return ╭━━〔 📊 DIMUWA STATUS 〕━━╮   ┃   ┃ 🤖 Status: ${isConnected(sock) ? "CONNECTED" : "OFFLINE"}   ┃ 👤 Username: ${username}   ┃ 📱 Number: ${jidNumber(sock.user?.id) || "-"}   ┃   ┃ ⚙️ Bot Mode: ${s.botMode}   ┃ 🔌 Bot Power: ${s.botPower}   ┃ 👁 Auto Read: ${s.autoRead}   ┃ 🟢 Always Online: ${s.alwaysOnline}   ┃ 🗑 Anti Delete: ${s.antiDelete}   ┃ 🔓 Auto View-Once: ${s.autoSaveViewOnce}   ┃ 📱 .vv Target: ${s.vvTarget}   ┃ 💾 .save Target: ${s.saveTarget}   ┃   ┃ 💬 Messages: ${stats.messages}   ┃ ⚡ Commands: ${stats.commands}   ┃ 📥 Downloads: ${stats.downloads}   ┃   ╰━━━━━━━━━━━━━━━━━━━━━━╯;
 }
 
 /* =====================================================
@@ -986,7 +956,7 @@ try {
 await sock.sendMessage(jid, { text: "🏓 Pinging..." }, { quoted: msg });
 const ms = Date.now() - start;
 await sock.sendMessage(jid, {
-text: `🏓 *PONG!*\n\n⚡ Response: ${ms} ms\n🟢 Status: Online\n🤖 DIMUWA MINI BOT\n👑 Creator: ${CREATOR_NAME}`
+text: 🏓 *PONG!*\n\n⚡ Response: ${ms} ms\n🟢 Status: Online\n🤖 DIMUWA MINI BOT\n👑 Creator: ${CREATOR_NAME}
 });
 } catch (error) {
 logger.error({ error: error.message }, "Ping failed.");
@@ -996,17 +966,17 @@ logger.error({ error: error.message }, "Ping failed.");
 async function handleFunCommand(sock, jid, command, msg) {
 if (command === ".dice") {
 const value = Math.floor(Math.random() * 6) + 1;
-await sock.sendMessage(jid, { text: `🎲 Dice: *${value}*` }, { quoted: msg });
+await sock.sendMessage(jid, { text: 🎲 Dice: *${value}* }, { quoted: msg });
 return true;
 }
 if (command === ".random") {
 const value = Math.floor(Math.random() * 100) + 1;
-await sock.sendMessage(jid, { text: `🎯 Random number: *${value}*` }, { quoted: msg });
+await sock.sendMessage(jid, { text: 🎯 Random number: *${value}* }, { quoted: msg });
 return true;
 }
 if (command === ".love") {
 const value = Math.floor(Math.random() * 101);
-await sock.sendMessage(jid, { text: `❤️ Love: *${value}%*` }, { quoted: msg });
+await sock.sendMessage(jid, { text: ❤️ Love: *${value}%* }, { quoted: msg });
 return true;
 }
 return false;
@@ -1022,10 +992,10 @@ const metadata = await sock.groupMetadata(jid);
 const participants = metadata.participants || [];
 if (!participants.length) return;
 const mentions = participants.map(p => p.id);
-const body = `📢 *DIMUWA TAG ALL*\n\n${participants.map(p => `@${jidNumber(p.id)}`).join(" ")}`;
+const body = 📢 *DIMUWA TAG ALL*\n\n${participants.map(p => @${jidNumber(p.id)}).join(" ")};
 await sock.sendMessage(jid, { text: body, mentions }, { quoted: msg });
 } catch (error) {
-await sock.sendMessage(jid, { text: `❌ Tag all failed.\n\n${error.message}` }, { quoted: msg });
+await sock.sendMessage(jid, { text: ❌ Tag all failed.\n\n${error.message} }, { quoted: msg });
 }
 }
 /* =====================================================
@@ -1033,10 +1003,10 @@ YT-DLP (STANDALONE BINARY)
 ===================================================== */
 
 function ytDlpBinaryName() {
-if (process.platform !== "linux") throw new Error(`Unsupported arch: ${process.arch}`);
+if (process.platform !== "linux") throw new Error(Unsupported arch: ${process.arch});
 if (process.arch === "x64") return "yt-dlp_linux";
 if (process.arch === "arm64") return "yt-dlp_linux_aarch64";
-throw new Error(`Unsupported arch: ${process.arch}`);
+throw new Error(Unsupported arch: ${process.arch});
 }
 
 function ytDlpDownloadUrl() {
@@ -1052,7 +1022,7 @@ return downloadFile(response.headers.location, destination).then(resolve).catch(
 }
 if (response.statusCode !== 200) {
 response.resume();
-reject(new Error(`Download failed: HTTP ${response.statusCode}`));
+reject(new Error(Download failed: HTTP ${response.statusCode}));
 return;
 }
 const file = fs.createWriteStream(destination);
@@ -1073,7 +1043,7 @@ await fsp.access(binary, fs.constants.X_OK);
 return binary;
 } catch {}
 }
-const temp = `${binary}.download`;
+const temp = ${binary}.download;
 logger.info("Downloading standalone yt-dlp...");
 await downloadFile(ytDlpDownloadUrl(), temp);
 await fsp.chmod(temp, 0o755);
@@ -1088,7 +1058,7 @@ URL HELPERS
 
 function extractHttpUrl(text) {
 if (!text) return null;
-const match = text.match(/https?:\/\/[^\s]+/i);
+const match = text.match(/https?://[^\s]+/i);
 if (!match) return null;
 return match[0].replace(/[)>]+$/g, "");
 }
@@ -1096,19 +1066,19 @@ return match[0].replace(/[)>]+$/g, "");
 function isSupportedDownloaderUrl(url) {
 try {
 const parsed = new URL(url);
-const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
+const host = parsed.hostname.toLowerCase().replace(/^www./, "");
 
-return (  
-  host.includes("tiktok.com") ||  
-  host.includes("vm.tiktok.com") ||  
-  host.includes("vt.tiktok.com") ||  
-  host.includes("youtube.com") ||  
-  host.includes("youtu.be") ||  
-  host.includes("youtube-nocookie.com") ||  
-  host.includes("facebook.com") ||  
-  host.includes("fb.watch") ||  
-  host.includes("fb.com") ||  
-  host.includes("m.facebook.com")  
+return (
+host.includes("tiktok.com") ||
+host.includes("vm.tiktok.com") ||
+host.includes("vt.tiktok.com") ||
+host.includes("youtube.com") ||
+host.includes("youtu.be") ||
+host.includes("youtube-nocookie.com") ||
+host.includes("facebook.com") ||
+host.includes("fb.watch") ||
+host.includes("fb.com") ||
+host.includes("m.facebook.com")
 );
 
 } catch {
@@ -1133,7 +1103,7 @@ DOWNLOADER CORE
 async function downloadSocialMedia(username, url) {
 const ytDlp = await ensureYtDlp();
 const jobId = crypto.randomBytes(8).toString("hex");
-const outputTemplate = path.join(MEDIA_DIR, `${jobId}.%(ext)s`);
+const outputTemplate = path.join(MEDIA_DIR, ${jobId}.%(ext)s);
 
 const platform = detectPlatform(url);
 let formatArgs;
@@ -1186,7 +1156,7 @@ let outputFile = printed.length ? printed[printed.length - 1] : "";
 if (!outputFile || !fs.existsSync(outputFile)) {
 const candidates = await fsp.readdir(MEDIA_DIR);
 const candidate = candidates
-.filter(name => name.startsWith(`${jobId}.`))
+.filter(name => name.startsWith(${jobId}.))
 .map(name => path.join(MEDIA_DIR, name))
 .find(file => fs.existsSync(file));
 outputFile = candidate || "";
@@ -1253,7 +1223,7 @@ await fsp.unlink(file).catch(() => {});
 } catch (error) {
 logger.error({ error: error.message, url }, "Downloader error");
 await sock.sendMessage(msg.key.remoteJid, {
-text: `❌ Download failed\n\n${error.message}`
+text: ❌ Download failed\n\n${error.message}
 });
 }
 return true;
@@ -1272,38 +1242,38 @@ try {
 const cached = getCachedMessage(key);
 if (!cached) continue;
 
-const target =  
-    settings.antiDelTarget === "PRIVATE"  
-      ? getOwnerJid(sock)  
-      : key.remoteJid;  
+const target =
+settings.antiDelTarget === "PRIVATE"
+? getOwnerJid(sock)
+: key.remoteJid;
 
-  if (!target) continue;  
+if (!target) continue;
 
-  const text = getMessageText(cached);  
-  const media = getMediaInfo(cached.message);  
+const text = getMessageText(cached);
+const media = getMediaInfo(cached.message);
 
-  if (media) {  
-    try {  
-      const downloaded = await downloadWhatsAppMedia(sock, cached);  
-      await sendWhatsAppMedia(sock, target, downloaded);  
-    } catch {  
-      await sock.sendMessage(target, {  
-        text: `🗑️ DELETED MEDIA\n\nType: ${media.mediaType}`  
-      });  
-    }  
-  } else if (text) {  
-    await sock.sendMessage(target, {  
-      text: `🗑️ DELETED MESSAGE\n\n${text}`  
-    });  
-  } else {  
-    try {  
-      await sock.sendMessage(target, { forward: cached });  
-    } catch {  
-      await sock.sendMessage(target, { text: "🗑️ A message was deleted." });  
-    }  
-  }  
-} catch (error) {  
-  logger.error({ error: error.message }, "Anti-delete error");  
+if (media) {
+try {
+const downloaded = await downloadWhatsAppMedia(sock, cached);
+await sendWhatsAppMedia(sock, target, downloaded);
+} catch {
+await sock.sendMessage(target, {
+text: 🗑️ DELETED MEDIA\n\nType: ${media.mediaType}
+});
+}
+} else if (text) {
+await sock.sendMessage(target, {
+text: 🗑️ DELETED MESSAGE\n\n${text}
+});
+} else {
+try {
+await sock.sendMessage(target, { forward: cached });
+} catch {
+await sock.sendMessage(target, { text: "🗑️ A message was deleted." });
+}
+}
+} catch (error) {
+logger.error({ error: error.message }, "Anti-delete error");
 }
 
 }
@@ -1373,51 +1343,51 @@ try {
 let targetJid = null;
 let targetName = "";
 
-const quoted = getQuotedMessage(msg);  
+const quoted = getQuotedMessage(msg);
 
-if (quoted) {  
-  targetJid = quoted.key?.participant || quoted.key?.remoteJid;  
-  targetName = "replied user";  
-} else if (isGroupJid(jid)) {  
-  targetJid = jid;  
-  targetName = "group";  
-} else {  
-  targetJid = jid;  
-  targetName = "user";  
-}  
+if (quoted) {
+targetJid = quoted.key?.participant || quoted.key?.remoteJid;
+targetName = "replied user";
+} else if (isGroupJid(jid)) {
+targetJid = jid;
+targetName = "group";
+} else {
+targetJid = jid;
+targetName = "user";
+}
 
-if (!targetJid) {  
-  await sock.sendMessage(jid, {  
-    text: "❌ Could not identify target.\n\nUsage:\n• Reply to a message with .dp\n• Send .dp in a group for group icon"  
-  }, { quoted: msg });  
-  return;  
-}  
+if (!targetJid) {
+await sock.sendMessage(jid, {
+text: "❌ Could not identify target.\n\nUsage:\n• Reply to a message with .dp\n• Send .dp in a group for group icon"
+}, { quoted: msg });
+return;
+}
 
-let ppUrl = null;  
-try {  
-  ppUrl = await sock.profilePictureUrl(targetJid, "image");  
-} catch {  
-  ppUrl = null;  
-}  
+let ppUrl = null;
+try {
+ppUrl = await sock.profilePictureUrl(targetJid, "image");
+} catch {
+ppUrl = null;
+}
 
-if (!ppUrl) {  
-  await sock.sendMessage(jid, {  
-    text: `❌ No profile picture found for this ${targetName}.`  
-  }, { quoted: msg });  
-  return;  
-}  
+if (!ppUrl) {
+await sock.sendMessage(jid, {
+text: ❌ No profile picture found for this ${targetName}.
+}, { quoted: msg });
+return;
+}
 
-await sock.sendMessage(jid, {  
-  image: { url: ppUrl },  
-  caption: `📸 *Profile Picture*\n\n👤 ${targetName === "group" ? "Group" : "User"}: ${jidNumber(targetJid) || targetJid}\n\n🤖 DIMUWA MINI BOT`  
-}, { quoted: msg });  
+await sock.sendMessage(jid, {
+image: { url: ppUrl },
+caption: 📸 *Profile Picture*\n\n👤 ${targetName === "group" ? "Group" : "User"}: ${jidNumber(targetJid) || targetJid}\n\n🤖 DIMUWA MINI BOT
+}, { quoted: msg });
 
 logger.info({ targetJid }, ".dp success");
 
 } catch (error) {
 logger.error({ error: error.message }, ".dp error");
 await sock.sendMessage(jid, {
-text: `❌ .dp failed\n\n${error.message}`
+text: ❌ .dp failed\n\n${error.message}
 }, { quoted: msg });
 }
 }
@@ -1432,47 +1402,47 @@ const jid = msg.key.remoteJid;
 try {
 let targetJid = null;
 
-const quoted = getQuotedMessage(msg);  
+const quoted = getQuotedMessage(msg);
 
-if (quoted) {  
-  targetJid = quoted.key?.participant || quoted.key?.remoteJid;  
-} else if (!isGroupJid(jid)) {  
-  targetJid = jid;  
-}  
+if (quoted) {
+targetJid = quoted.key?.participant || quoted.key?.remoteJid;
+} else if (!isGroupJid(jid)) {
+targetJid = jid;
+}
 
-if (!targetJid) {  
-  await sock.sendMessage(jid, {  
-    text: `❌ Could not identify target.\n\nUsage:\n• Reply to a message with .${shouldBlock ? "block" : "unblock"}\n• Send .${shouldBlock ? "block" : "unblock"} in a private chat`  
-  }, { quoted: msg });  
-  return;  
-}  
+if (!targetJid) {
+await sock.sendMessage(jid, {
+text: ❌ Could not identify target.\n\nUsage:\n• Reply to a message with .${shouldBlock ? "block" : "unblock"}\n• Send .${shouldBlock ? "block" : "unblock"} in a private chat
+}, { quoted: msg });
+return;
+}
 
-const owner = getOwnerJid(sock);  
-if (owner && jidNumber(targetJid) === jidNumber(owner)) {  
-  await sock.sendMessage(jid, {  
-    text: "❌ You cannot block the bot owner."  
-  }, { quoted: msg });  
-  return;  
-}  
+const owner = getOwnerJid(sock);
+if (owner && jidNumber(targetJid) === jidNumber(owner)) {
+await sock.sendMessage(jid, {
+text: "❌ You cannot block the bot owner."
+}, { quoted: msg });
+return;
+}
 
-if (shouldBlock) {  
-  await sock.updateBlockStatus(targetJid, "block");  
-  await sock.sendMessage(jid, {  
-    text: `🚫 *User Blocked*\n\n📱 ${jidNumber(targetJid)}\n\n🤖 DIMUWA MINI BOT`  
-  }, { quoted: msg });  
-  logger.info({ targetJid }, "User blocked");  
-} else {  
-  await sock.updateBlockStatus(targetJid, "unblock");  
-  await sock.sendMessage(jid, {  
-    text: `✅ *User Unblocked*\n\n📱 ${jidNumber(targetJid)}\n\n🤖 DIMUWA MINI BOT`  
-  }, { quoted: msg });  
-  logger.info({ targetJid }, "User unblocked");  
+if (shouldBlock) {
+await sock.updateBlockStatus(targetJid, "block");
+await sock.sendMessage(jid, {
+text: 🚫 *User Blocked*\n\n📱 ${jidNumber(targetJid)}\n\n🤖 DIMUWA MINI BOT
+}, { quoted: msg });
+logger.info({ targetJid }, "User blocked");
+} else {
+await sock.updateBlockStatus(targetJid, "unblock");
+await sock.sendMessage(jid, {
+text: ✅ *User Unblocked*\n\n📱 ${jidNumber(targetJid)}\n\n🤖 DIMUWA MINI BOT
+}, { quoted: msg });
+logger.info({ targetJid }, "User unblocked");
 }
 
 } catch (error) {
 logger.error({ error: error.message }, "Block/Unblock error");
 await sock.sendMessage(jid, {
-text: `❌ ${shouldBlock ? "Block" : "Unblock"} failed\n\n${error.message}`
+text: ❌ ${shouldBlock ? "Block" : "Unblock"} failed\n\n${error.message}
 }, { quoted: msg });
 }
 }
@@ -1513,12 +1483,12 @@ if (msg.key.remoteJid === "broadcast") return;
 if (msg.message.protocolMessage) {
 const protoType = msg.message.protocolMessage.type;
 
-if (protoType === 0 || protoType === "REVOKE") {  
-  const deletedKey = msg.message.protocolMessage.key;  
-  if (deletedKey) {  
-    await handleDeletedMessages(username, sock, [deletedKey]);  
-  }  
-}  
+if (protoType === 0 || protoType === "REVOKE") {
+const deletedKey = msg.message.protocolMessage.key;
+if (deletedKey) {
+await handleDeletedMessages(username, sock, [deletedKey]);
+}
+}
 return;
 
 }
@@ -1537,7 +1507,7 @@ await handleAutoSaveViewOnce(username, sock, msg);
 const text = getMessageText(msg).trim();
 if (!text) return;
 
-const settingCode = text.match(/^\s*(\d{1,2}\.\d)\s*$/);
+const settingCode = text.match(/^\s*(\d{1,2}.\d)\s*$/);
 if (settingCode) {
 await processSettingsCode(sock, username, msg, settingCode[1]);
 return;
@@ -1651,133 +1621,147 @@ const startPromise = (async () => {
 const authPath = sessionPath(clean);
 fs.mkdirSync(authPath, { recursive: true });
 
-const { state, saveCreds } = await useMultiFileAuthState(authPath);  
-const waWebVersion = await fetchLatestWaWebVersion();  
-logger.info({ waWebVersion }, "Using live WhatsApp Web version");  
+const { state, saveCreds } = await useMultiFileAuthState(authPath);
 
-const sock = makeWASocket({  
-  version: waWebVersion,  
-  auth: state,  
-  browser: Browsers.macOS("Desktop"),  
-  printQRInTerminal: false,  
-  logger,  
-  markOnlineOnConnect: true,  
-  syncFullHistory: true,  
-  connectTimeoutMs: 60000,  
-  defaultQueryTimeoutMs: 60000,  
-  keepAliveIntervalMs: 25000,  
-  retryRequestDelayMs: 2000,  
-  getMessage: async (key) => {  
-    const cached = getCachedMessage(key);  
-    if (cached?.message) return cached.message;  
-    return proto.Message.fromObject({});  
-  }  
-});  
+let waWebVersion;
+try {
+const versionInfo = await fetchLatestBaileysVersion();
+if (Array.isArray(versionInfo?.version)) {
+waWebVersion = versionInfo.version;
+logger.info({ waWebVersion, isLatest: versionInfo.isLatest }, "WhatsApp Web version resolved");
+} else {
+logger.warn("Baileys did not return a WhatsApp Web version; using bundled default.");
+}
+} catch (error) {
+logger.warn({ error: error.message }, "Could not fetch latest WhatsApp Web version; using bundled default.");
+}
 
-sock.__dimuwaUsername = clean;  
-bots.set(clean, sock);  
-getSettings(clean);  
-getStats(clean);  
+const socketOptions = {
+auth: state,
+browser: Browsers.macOS("Desktop"),
+printQRInTerminal: false,
+logger,
+markOnlineOnConnect: true,
+syncFullHistory: true,
+connectTimeoutMs: 60000,
+defaultQueryTimeoutMs: 60000,
+keepAliveIntervalMs: 25000,
+retryRequestDelayMs: 2000,
+getMessage: async (key) => {
+const cached = getCachedMessage(key);
+if (cached?.message) return cached.message;
+return proto.Message.fromObject({});
+}
+};
+if (waWebVersion) socketOptions.version = waWebVersion;
+const sock = makeWASocket(socketOptions);
 
-sock.ev.on("creds.update", saveCreds);  
+sock.__dimuwaUsername = clean;
+bots.set(clean, sock);
+getSettings(clean);
+getStats(clean);
 
-sock.ev.on("connection.update", async (update) => {  
-  const { connection, lastDisconnect, qr } = update;  
+sock.ev.on("creds.update", saveCreds);
 
-  if (qr) {  
-    try {  
-      const qrDataUrl = await QRCode.toDataURL(qr, { margin: 2, width: 500 });  
-      qrStore.set(clean, qrDataUrl);  
-      logger.info({ username: clean }, "QR generated");  
-    } catch (error) {  
-      logger.error({ error: error.message }, "QR generation error");  
-    }  
-  }  
+sock.ev.on("connection.update", async (update) => {
+const { connection, lastDisconnect, qr } = update;
 
-  if (connection === "open") {  
-    qrStore.delete(clean);  
-    pairingStore.delete(clean);  
+if (qr) {
+try {
+const qrDataUrl = await QRCode.toDataURL(qr, { margin: 2, width: 500 });
+qrStore.set(clean, qrDataUrl);
+logger.info({ username: clean }, "QR generated");
+} catch (error) {
+logger.error({ error: error.message }, "QR generation error");
+}
+}
 
-    followDimuwaChannel(sock).catch(() => {});  
-    sendDimuwaWelcome(sock, clean).catch(() => {});  
+if (connection === "open") {
+qrStore.delete(clean);
+pairingStore.delete(clean);
 
-    const stats = getStats(clean);  
-    stats.connectedAt = Date.now();  
-    stats.lastSeen = Date.now();  
-    saveStats();  
+followDimuwaChannel(sock).catch(() => {});    
+sendDimuwaWelcome(sock, clean).catch(() => {});    
 
-    logger.info({ username: clean, user: sock.user?.id }, "DIMUWA bot connected");  
-    await applyPresence(clean, sock);  
+const stats = getStats(clean);    
+stats.connectedAt = Date.now();    
+stats.lastSeen = Date.now();    
+saveStats();    
 
-    if (getSettings(clean).alwaysOnline === "ON") {  
-      const oldTimer = sock.__presenceTimer;  
-      if (oldTimer) clearInterval(oldTimer);  
-      sock.__presenceTimer = setInterval(async () => {  
-        if (isConnected(sock) && getSettings(clean).alwaysOnline === "ON") {  
-          await sock.sendPresenceUpdate("available").catch(() => {});  
-        }  
-      }, 20000);  
-    }  
-    return;  
-  }  
+logger.info({ username: clean, user: sock.user?.id }, "DIMUWA bot connected");    
+await applyPresence(clean, sock);    
 
-  if (connection === "close") {  
-    if (sock.__presenceTimer) {  
-      clearInterval(sock.__presenceTimer);  
-      sock.__presenceTimer = null;  
-    }  
+if (getSettings(clean).alwaysOnline === "ON") {    
+  const oldTimer = sock.__presenceTimer;    
+  if (oldTimer) clearInterval(oldTimer);    
+  sock.__presenceTimer = setInterval(async () => {    
+    if (isConnected(sock) && getSettings(clean).alwaysOnline === "ON") {    
+      await sock.sendPresenceUpdate("available").catch(() => {});    
+    }    
+  }, 20000);    
+}    
+return;
 
-    const code = lastDisconnect?.error?.output?.statusCode;  
-    logger.warn({ username: clean, code }, "WhatsApp connection closed");  
-    bots.delete(clean);  
+}
 
-    if (code === DisconnectReason.loggedOut) {  
-      qrStore.delete(clean);  
-      pairingStore.delete(clean);  
-      logger.warn({ username: clean }, "Session logged out");  
-      return;  
-    }  
+if (connection === "close") {
+if (sock.__presenceTimer) {
+clearInterval(sock.__presenceTimer);
+sock.__presenceTimer = null;
+}
 
-    if (code === 440) {  
-      logger.warn({ username: clean }, "Connection replaced");  
-      return;  
-    }  
+const code = lastDisconnect?.error?.output?.statusCode;    
+logger.warn({ username: clean, code }, "WhatsApp connection closed");    
+bots.delete(clean);    
 
-    const reconnectDelay = code === 515 ? 1000 : code === 408 ? 5000 : 5000;  
-    setTimeout(() => {  
-      startBot(clean).catch(error => {  
-        logger.error({ error: error.message, username: clean }, "Reconnect failed");  
-      });  
-    }, reconnectDelay);  
-  }  
-});  
+if (code === DisconnectReason.loggedOut) {    
+  qrStore.delete(clean);    
+  pairingStore.delete(clean);    
+  logger.warn({ username: clean }, "Session logged out");    
+  return;    
+}    
 
-sock.ev.on("messages.upsert", async (event) => {  
-  const messages = event?.messages || [];  
-  for (const msg of messages) {  
-    try {  
-      await handleMessage(clean, sock, msg);  
-    } catch (error) {  
-      logger.error({  
-        username: clean,  
-        error: error.message,  
-        stack: error.stack  
-      }, "Message handler error");  
-    }  
-  }  
-});  
+if (code === 440) {    
+  logger.warn({ username: clean }, "Connection replaced");    
+  return;    
+}    
 
-sock.ev.on("messages.delete", async (event) => {  
-  try {  
-    let keys = [];  
-    if (Array.isArray(event)) keys = event;  
-    else if (Array.isArray(event?.keys)) keys = event.keys;  
-    else if (event?.key) keys = [event.key];  
-    await handleDeletedMessages(clean, sock, keys);  
-  } catch (error) {  
-    logger.error({ error: error.message }, "Delete event error");  
-  }  
-});  
+const reconnectDelay = code === 515 ? 1000 : code === 408 ? 5000 : 5000;    
+setTimeout(() => {    
+  startBot(clean).catch(error => {    
+    logger.error({ error: error.message, username: clean }, "Reconnect failed");    
+  });    
+}, reconnectDelay);
+
+}
+});
+
+sock.ev.on("messages.upsert", async (event) => {
+const messages = event?.messages || [];
+for (const msg of messages) {
+try {
+await handleMessage(clean, sock, msg);
+} catch (error) {
+logger.error({
+username: clean,
+error: error.message,
+stack: error.stack
+}, "Message handler error");
+}
+}
+});
+
+sock.ev.on("messages.delete", async (event) => {
+try {
+let keys = [];
+if (Array.isArray(event)) keys = event;
+else if (Array.isArray(event?.keys)) keys = event.keys;
+else if (event?.key) keys = [event.key];
+await handleDeletedMessages(clean, sock, keys);
+} catch (error) {
+logger.error({ error: error.message }, "Delete event error");
+}
+});
 
 return sock;
 
@@ -1860,15 +1844,15 @@ logger.info({ username: MAIN_USERNAME, phone: MAIN_NUMBER }, "Requesting auto pa
 const result = await getPairingCode(MAIN_USERNAME, MAIN_NUMBER);
 
 if (result.connected) {
-  logger.info({ phone: MAIN_NUMBER }, "Main number is already connected.");
-  return;
+logger.info({ phone: MAIN_NUMBER }, "Main number is already connected.");
+return;
 }
 
 console.log("\n==============================================");
 console.log("   DIMUWA MAIN NUMBER - AUTO PAIRING CODE");
 console.log("==============================================");
-console.log(`   Number : +${MAIN_NUMBER}`);
-console.log(`   Code   : ${result.code}`);
+console.log(   Number : +${MAIN_NUMBER});
+console.log(   Code   : ${result.code});
 console.log("==============================================");
 console.log("   WhatsApp > Linked Devices > Link with phone number");
 console.log("   Enter the code above within 60 seconds.");
@@ -1876,7 +1860,7 @@ console.log("==============================================\n");
 
 } catch (error) {
 logger.error({ error: error.message, phone: MAIN_NUMBER }, "Auto pairing failed for main number.");
-console.log(`\nAuto pairing failed for +${MAIN_NUMBER}: ${error.message}\n`);
+console.log(\nAuto pairing failed for +${MAIN_NUMBER}: ${error.message}\n);
 }
 }
 
@@ -1927,7 +1911,7 @@ try {
 const ownerJid = jidFromPhone(jidNumber(sock.user?.id));
 if (!ownerJid) return;
 
-const welcomeText = `👋 *WELCOME TO DIMUWA MINI BOT* 🤖 👑
+const welcomeText = `👋 WELCOME TO DIMUWA MINI BOT 🤖 👑
 
 🎉 Your bot has been successfully connected!
 
@@ -1953,7 +1937,7 @@ Follow our WhatsApp Channel for:
 
 👑 Created by DIMUTH SATHSARA`;
 
-await sock.sendMessage(ownerJid, { text: welcomeText });  
+await sock.sendMessage(ownerJid, { text: welcomeText });
 logger.info({ username, ownerJid }, "Welcome message sent.");
 
 } catch (error) {
@@ -2140,7 +2124,7 @@ GRACEFUL SHUTDOWN
 ===================================================== */
 
 async function shutdown(signal) {
-logger.info(`${signal} received. Shutting down...`);
+logger.info(${signal} received. Shutting down...);
 for (const [username, sock] of bots) {
 try {
 if (sock.__presenceTimer) clearInterval(sock.__presenceTimer);
@@ -2167,3 +2151,5 @@ autoPairMainNumber().catch(() => {});
 });
 
 // ===== FULL index.js COMPLETE =====
+
+========== END index.js ========
