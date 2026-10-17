@@ -74,7 +74,7 @@ request.setTimeout(15000, () => request.destroy(new Error("Timed out fetching cu
 
 function finishVersionResponse(response, body, resolve, reject) {
 if (response.statusCode !== 200) {
-reject(new Error(Could not fetch WhatsApp Web version: HTTP ${response.statusCode}));
+reject(new Error(`Could not fetch WhatsApp Web version: HTTP ${response.statusCode}`));
 return;
 }
 const match = body.match(/\bclient_revision\s*[:=]\s*(\d+)/);
@@ -205,7 +205,7 @@ return fallback;
 
 function writeJson(file, data) {
 try {
-const temp = ${file}.tmp;
+const temp = `${file}.tmp`;
 fs.writeFileSync(temp, JSON.stringify(data, null, 2), "utf8");
 fs.renameSync(temp, file);
 } catch (error) {
@@ -228,7 +228,7 @@ return String(username || "default")
 }
 
 function sessionPath(username) {
-return path.join(SESSION_DIR, session_${cleanUsername(username)});
+return path.join(SESSION_DIR, `session_${cleanUsername(username)}`);
 }
 
 function getSettings(username) {
@@ -289,7 +289,7 @@ return String(jid).split("@")[0].split(":")[0].replace(/\D/g, "");
 function jidFromPhone(phone) {
 const number = String(phone || "").replace(/\D/g, "");
 if (!number) return null;
-return ${number}@s.whatsapp.net;
+return `${number}@s.whatsapp.net`;
 }
 
 function normalizePhone(phone) {
@@ -350,7 +350,7 @@ return item.message;
 }
 
 for (const [cacheK, cacheItem] of messageCache) {
-if (cacheK.endsWith(:${key.id}) || cacheK.includes(:${key.id}:)) {
+if (cacheK.endsWith(`:${key.id}`) || cacheK.includes(`:${key.id}:`)) {
 if (Date.now() - cacheItem.savedAt > CACHE_TTL) {
 messageCache.delete(cacheK);
 continue;
@@ -688,7 +688,7 @@ await sock.sendMessage(msg.key.remoteJid, {
 } catch (error) {
 logger.error({ error: error.message }, ".vv error");
 await sock.sendMessage(msg.key.remoteJid, {
-text: ❌ .vv failed\n\n${error.message}
+text: `❌ .vv failed\n\n${error.message}`
 });
 }
 }
@@ -728,7 +728,7 @@ if (target !== msg.key.remoteJid) {
 } catch (error) {
 logger.error({ error: error.message }, ".save error");
 await sock.sendMessage(msg.key.remoteJid, {
-text: ❌ .save failed\n\nReply to an image, video, audio, document or sticker.\n\n${error.message}
+text: `❌ .save failed\n\nReply to an image, video, audio, document or sticker.\n\n${error.message}`
 });
 }
 }
@@ -833,7 +833,7 @@ default: return false;
 if (changed) {
 saveSettings(username, s);
 await sock.sendMessage(msg.key.remoteJid, {
-text: ✅ SETTING UPDATED\n\n${message}\n\nUse .settings to view current settings.
+text: `✅ SETTING UPDATED\n\n${message}\n\nUse .settings to view current settings.`
 });
 if (s.alwaysOnline === "ON") {
 await sock.sendPresenceUpdate("available").catch(() => {});
@@ -905,7 +905,7 @@ logger.error({ error: error.message }, "Menu audio failed.");
 async function handleMenuNumber(sock, username, jid, number, msg) {
 if (number === "1") {
 await sock.sendMessage(jid, {
-text: 📥 *DOWNLOAD MENU*\n\n1️⃣ TikTok\n2️⃣ Facebook\n3️⃣ YouTube\n\nSend:\n.tt <url>\n.fb <url>\n.yt <url>\n\nOr simply send the URL.
+text: `📥 *DOWNLOAD MENU*\n\n1️⃣ TikTok\n2️⃣ Facebook\n3️⃣ YouTube\n\nSend:\n.tt <url>\n.fb <url>\n.yt <url>\n\nOr simply send the URL.`
 }, { quoted: msg });
 return true;
 }
@@ -919,25 +919,25 @@ await sock.sendMessage(jid, { text: "❌ Owner only command." }, { quoted: msg }
 return true;
 }
 await sock.sendMessage(jid, {
-text: 👑 *OWNER COMMANDS*\n\n.ping\n.menu\n.settings\n.dp\n.block\n.unblock\n.logout\n.unlink\n\nBot owner:\n${CREATOR_NAME}\n${CREATOR_PHONE}
+text: `👑 *OWNER COMMANDS*\n\n.ping\n.menu\n.settings\n.dp\n.block\n.unblock\n.logout\n.unlink\n\nBot owner:\n${CREATOR_NAME}\n${CREATOR_PHONE}`
 }, { quoted: msg });
 return true;
 }
 if (number === "4") {
 await sock.sendMessage(jid, {
-text: 🛠️ *UTILITY*\n\nReply to an image/video/audio with:\n\n.vv\n.save\n\n.vv = View / resend media\n.save = Save / resend media\n\n💡 View-once media is auto-saved now!
+text: `🛠️ *UTILITY*\n\nReply to an image/video/audio with:\n\n.vv\n.save\n\n.vv = View / resend media\n.save = Save / resend media\n\n💡 View-once media is auto-saved now!`
 }, { quoted: msg });
 return true;
 }
 if (number === "5") {
 await sock.sendMessage(jid, {
-text: 🎮 *FUN COMMANDS*\n\n🎲 .dice\n🎯 .random\n❤️ .love
+text: `🎮 *FUN COMMANDS*\n\n🎲 .dice\n🎯 .random\n❤️ .love`
 }, { quoted: msg });
 return true;
 }
 if (number === "6") {
 await sock.sendMessage(jid, {
-text: 👥 *GROUP COMMANDS*\n\n.tagall\n\nReply/send in a group to tag members.
+text: `👥 *GROUP COMMANDS*\n\n.tagall\n\nReply/send in a group to tag members.`
 }, { quoted: msg });
 return true;
 }
@@ -946,13 +946,13 @@ return false;
 
 function aliveText(username) {
 const s = getSettings(username);
-return ╭━━〔 🟢 DIMUWA BOT ALIVE 〕━━╮   ┃   ┃ 🤖 Bot: ONLINE   ┃ 👤 User: ${username}   ┃ ⚡ Power: ${s.botPower}   ┃ 📥 Mode: ${s.botMode}   ┃ 🔓 Auto View-Once: ${s.autoSaveViewOnce}   ┃   ┃ © DIMUTH SATHSARA   ╰━━━━━━━━━━━━━━━━━━━━━━╯;
+return `╭━━〔 🟢 DIMUWA BOT ALIVE 〕━━╮   ┃   ┃ 🤖 Bot: ONLINE   ┃ 👤 User: ${username}   ┃ ⚡ Power: ${s.botPower}   ┃ 📥 Mode: ${s.botMode}   ┃ 🔓 Auto View-Once: ${s.autoSaveViewOnce}   ┃   ┃ © DIMUTH SATHSARA   ╰━━━━━━━━━━━━━━━━━━━━━━╯`;
 }
 
 function statusText(username, sock) {
 const s = getSettings(username);
 const stats = getStats(username);
-return ╭━━〔 📊 DIMUWA STATUS 〕━━╮   ┃   ┃ 🤖 Status: ${isConnected(sock) ? "CONNECTED" : "OFFLINE"}   ┃ 👤 Username: ${username}   ┃ 📱 Number: ${jidNumber(sock.user?.id) || "-"}   ┃   ┃ ⚙️ Bot Mode: ${s.botMode}   ┃ 🔌 Bot Power: ${s.botPower}   ┃ 👁 Auto Read: ${s.autoRead}   ┃ 🟢 Always Online: ${s.alwaysOnline}   ┃ 🗑 Anti Delete: ${s.antiDelete}   ┃ 🔓 Auto View-Once: ${s.autoSaveViewOnce}   ┃ 📱 .vv Target: ${s.vvTarget}   ┃ 💾 .save Target: ${s.saveTarget}   ┃   ┃ 💬 Messages: ${stats.messages}   ┃ ⚡ Commands: ${stats.commands}   ┃ 📥 Downloads: ${stats.downloads}   ┃   ╰━━━━━━━━━━━━━━━━━━━━━━╯;
+return `╭━━〔 📊 DIMUWA STATUS 〕━━╮   ┃   ┃ 🤖 Status: ${isConnected(sock) ? "CONNECTED" : "OFFLINE"}   ┃ 👤 Username: ${username}   ┃ 📱 Number: ${jidNumber(sock.user?.id) || "-"}   ┃   ┃ ⚙️ Bot Mode: ${s.botMode}   ┃ 🔌 Bot Power: ${s.botPower}   ┃ 👁 Auto Read: ${s.autoRead}   ┃ 🟢 Always Online: ${s.alwaysOnline}   ┃ 🗑 Anti Delete: ${s.antiDelete}   ┃ 🔓 Auto View-Once: ${s.autoSaveViewOnce}   ┃ 📱 .vv Target: ${s.vvTarget}   ┃ 💾 .save Target: ${s.saveTarget}   ┃   ┃ 💬 Messages: ${stats.messages}   ┃ ⚡ Commands: ${stats.commands}   ┃ 📥 Downloads: ${stats.downloads}   ┃   ╰━━━━━━━━━━━━━━━━━━━━━━╯`;
 }
 
 /* =====================================================
@@ -965,7 +965,7 @@ try {
 await sock.sendMessage(jid, { text: "🏓 Pinging..." }, { quoted: msg });
 const ms = Date.now() - start;
 await sock.sendMessage(jid, {
-text: 🏓 *PONG!*\n\n⚡ Response: ${ms} ms\n🟢 Status: Online\n🤖 DIMUWA MINI BOT\n👑 Creator: ${CREATOR_NAME}
+text: `🏓 *PONG!*\n\n⚡ Response: ${ms} ms\n🟢 Status: Online\n🤖 DIMUWA MINI BOT\n👑 Creator: ${CREATOR_NAME}`
 });
 } catch (error) {
 logger.error({ error: error.message }, "Ping failed.");
@@ -975,17 +975,17 @@ logger.error({ error: error.message }, "Ping failed.");
 async function handleFunCommand(sock, jid, command, msg) {
 if (command === ".dice") {
 const value = Math.floor(Math.random() * 6) + 1;
-await sock.sendMessage(jid, { text: 🎲 Dice: *${value}* }, { quoted: msg });
+await sock.sendMessage(jid, { text: `🎲 Dice: *${value}*` }, { quoted: msg });
 return true;
 }
 if (command === ".random") {
 const value = Math.floor(Math.random() * 100) + 1;
-await sock.sendMessage(jid, { text: 🎯 Random number: *${value}* }, { quoted: msg });
+await sock.sendMessage(jid, { text: `🎯 Random number: *${value}*` }, { quoted: msg });
 return true;
 }
 if (command === ".love") {
 const value = Math.floor(Math.random() * 101);
-await sock.sendMessage(jid, { text: ❤️ Love: *${value}%* }, { quoted: msg });
+await sock.sendMessage(jid, { text: `❤️ Love: *${value}%*` }, { quoted: msg });
 return true;
 }
 return false;
@@ -1001,10 +1001,10 @@ const metadata = await sock.groupMetadata(jid);
 const participants = metadata.participants || [];
 if (!participants.length) return;
 const mentions = participants.map(p => p.id);
-const body = 📢 *DIMUWA TAG ALL*\n\n${participants.map(p => @${jidNumber(p.id)}).join(" ")};
+const body = `📢 *DIMUWA TAG ALL*\n\n${participants.map(p => `@${jidNumber(p.id)}`).join(" ")}`;
 await sock.sendMessage(jid, { text: body, mentions }, { quoted: msg });
 } catch (error) {
-await sock.sendMessage(jid, { text: ❌ Tag all failed.\n\n${error.message} }, { quoted: msg });
+await sock.sendMessage(jid, { text: `❌ Tag all failed.\n\n${error.message}` }, { quoted: msg });
 }
 }
 /* =====================================================
@@ -1012,10 +1012,10 @@ YT-DLP (STANDALONE BINARY)
 ===================================================== */
 
 function ytDlpBinaryName() {
-if (process.platform !== "linux") throw new Error("Linux only.");
+if (process.platform !== "linux") throw new Error(`Unsupported arch: ${process.arch}`);
 if (process.arch === "x64") return "yt-dlp_linux";
 if (process.arch === "arm64") return "yt-dlp_linux_aarch64";
-throw new Error(Unsupported arch: ${process.arch});
+throw new Error(`Unsupported arch: ${process.arch}`);
 }
 
 function ytDlpDownloadUrl() {
@@ -1031,7 +1031,7 @@ return downloadFile(response.headers.location, destination).then(resolve).catch(
 }
 if (response.statusCode !== 200) {
 response.resume();
-reject(new Error(Download failed: HTTP ${response.statusCode}));
+reject(new Error(`Download failed: HTTP ${response.statusCode}`));
 return;
 }
 const file = fs.createWriteStream(destination);
@@ -1052,7 +1052,7 @@ await fsp.access(binary, fs.constants.X_OK);
 return binary;
 } catch {}
 }
-const temp = ${binary}.download;
+const temp = `${binary}.download`;
 logger.info("Downloading standalone yt-dlp...");
 await downloadFile(ytDlpDownloadUrl(), temp);
 await fsp.chmod(temp, 0o755);
@@ -1067,7 +1067,7 @@ URL HELPERS
 
 function extractHttpUrl(text) {
 if (!text) return null;
-const match = text.match(/https?://[^\s]+/i);
+const match = text.match(/https?:\/\/[^\s]+/i);
 if (!match) return null;
 return match[0].replace(/[)>]+$/g, "");
 }
@@ -1075,7 +1075,7 @@ return match[0].replace(/[)>]+$/g, "");
 function isSupportedDownloaderUrl(url) {
 try {
 const parsed = new URL(url);
-const host = parsed.hostname.toLowerCase().replace(/^www./, "");
+const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
 
 return (  
   host.includes("tiktok.com") ||  
@@ -1112,7 +1112,7 @@ DOWNLOADER CORE
 async function downloadSocialMedia(username, url) {
 const ytDlp = await ensureYtDlp();
 const jobId = crypto.randomBytes(8).toString("hex");
-const outputTemplate = path.join(MEDIA_DIR, ${jobId}.%(ext)s);
+const outputTemplate = path.join(MEDIA_DIR, `${jobId}.%(ext)s`);
 
 const platform = detectPlatform(url);
 let formatArgs;
@@ -1165,7 +1165,7 @@ let outputFile = printed.length ? printed[printed.length - 1] : "";
 if (!outputFile || !fs.existsSync(outputFile)) {
 const candidates = await fsp.readdir(MEDIA_DIR);
 const candidate = candidates
-.filter(name => name.startsWith(${jobId}.))
+.filter(name => name.startsWith(`${jobId}.`))
 .map(name => path.join(MEDIA_DIR, name))
 .find(file => fs.existsSync(file));
 outputFile = candidate || "";
@@ -1232,7 +1232,7 @@ await fsp.unlink(file).catch(() => {});
 } catch (error) {
 logger.error({ error: error.message, url }, "Downloader error");
 await sock.sendMessage(msg.key.remoteJid, {
-text: ❌ Download failed\n\n${error.message}
+text: `❌ Download failed\n\n${error.message}`
 });
 }
 return true;
@@ -1396,7 +1396,7 @@ logger.info({ targetJid }, ".dp success");
 } catch (error) {
 logger.error({ error: error.message }, ".dp error");
 await sock.sendMessage(jid, {
-text: ❌ .dp failed\n\n${error.message}
+text: `❌ .dp failed\n\n${error.message}`
 }, { quoted: msg });
 }
 }
@@ -1451,7 +1451,7 @@ if (shouldBlock) {
 } catch (error) {
 logger.error({ error: error.message }, "Block/Unblock error");
 await sock.sendMessage(jid, {
-text: ❌ ${shouldBlock ? "Block" : "Unblock"} failed\n\n${error.message}
+text: `❌ ${shouldBlock ? "Block" : "Unblock"} failed\n\n${error.message}`
 }, { quoted: msg });
 }
 }
@@ -1516,7 +1516,7 @@ await handleAutoSaveViewOnce(username, sock, msg);
 const text = getMessageText(msg).trim();
 if (!text) return;
 
-const settingCode = text.match(/^\s*(\d{1,2}.\d)\s*$/);
+const settingCode = text.match(/^\s*(\d{1,2}\.\d)\s*$/);
 if (settingCode) {
 await processSettingsCode(sock, username, msg, settingCode[1]);
 return;
@@ -2083,7 +2083,7 @@ GRACEFUL SHUTDOWN
 ===================================================== */
 
 async function shutdown(signal) {
-logger.info(${signal} received. Shutting down...);
+logger.info(`${signal} received. Shutting down...`);
 for (const [username, sock] of bots) {
 try {
 if (sock.__presenceTimer) clearInterval(sock.__presenceTimer);
