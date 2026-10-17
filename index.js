@@ -1,24 +1,35 @@
 "use strict";
 
 /*
-=========================================================
+
 DIMUWA MINI BOT VERSION 5.1.0 (FIXED)
-=========================================================
+
 Creator: Dimuth Sathsara
 
 FIXED ISSUES:
-- QR code generation timing fixed
-- Private inbox view-once decrypt fixed
-- Settings owner check fixed
-- .vv / .save quoted message fixed
-- Facebook / YouTube downloader fixed
-- Auto channel follow with fallback
-- AUTO-SAVE view-once feature added
-- Anti-delete cache + protocol fixed
-- Status react with statusJidList fixed
-- .dp, .block, .unblock commands added
+
+QR code generation timing fixed
+
+Private inbox view-once decrypt fixed
+
+Settings owner check fixed
+
+.vv / .save quoted message fixed
+
+Facebook / YouTube downloader fixed
+
+Auto channel follow with fallback
+
+AUTO-SAVE view-once feature added
+
+Anti-delete cache + protocol fixed
+
+Status react with statusJidList fixed
+
+.dp, .block, .unblock commands added
 =========================================================
 */
+
 
 const express = require("express");
 const cors = require("cors");
@@ -35,15 +46,54 @@ const { promisify } = require("util");
 
 const execFileAsync = promisify(execFile);
 
+// Fetch the live WhatsApp Web client revision instead of relying on
+// Baileys' potentially stale bundled protocol version.
+function fetchLatestWaWebVersion() {
+return new Promise((resolve, reject) => {
+const request = https.get("https://web.whatsapp.com/sw.js", {
+headers: { "User-Agent": "Mozilla/5.0" }
+}, (response) => {
+if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+response.resume();
+return https.get(response.headers.location, { headers: { "User-Agent": "Mozilla/5.0" } }, (redirectResponse) => {
+let body = "";
+redirectResponse.setEncoding("utf8");
+redirectResponse.on("data", chunk => body += chunk);
+redirectResponse.on("end", () => finishVersionResponse(redirectResponse, body, resolve, reject));
+}).on("error", reject);
+}
+let body = "";
+response.setEncoding("utf8");
+response.on("data", chunk => body += chunk);
+response.on("end", () => finishVersionResponse(response, body, resolve, reject));
+});
+request.on("error", reject);
+request.setTimeout(15000, () => request.destroy(new Error("Timed out fetching current WhatsApp Web version.")));
+});
+}
+
+function finishVersionResponse(response, body, resolve, reject) {
+if (response.statusCode !== 200) {
+reject(new Error(Could not fetch WhatsApp Web version: HTTP ${response.statusCode}));
+return;
+}
+const match = body.match(/\bclient_revision\s*[:=]\s*(\d+)/);
+if (!match) {
+reject(new Error("Could not find the current WhatsApp Web client revision in sw.js."));
+return;
+}
+resolve([2, 3000, Number(match[1])]);
+}
+
 const {
-  default: makeWASocket,
-  useMultiFileAuthState,
-  DisconnectReason,
-  Browsers,
-  downloadMediaMessage,
-  getContentType,
-  normalizeMessageContent,
-  proto
+default: makeWASocket,
+useMultiFileAuthState,
+DisconnectReason,
+Browsers,
+downloadMediaMessage,
+getContentType,
+normalizeMessageContent,
+proto
 } = require("@whiskeysockets/baileys");
 
 /* =====================================================
@@ -53,9 +103,9 @@ APP CONFIG
 const PORT = Number(process.env.PORT || 3000);
 
 const DATA_DIR =
-  process.env.DATA_DIR ||
-  process.env.RAILWAY_VOLUME_MOUNT_PATH ||
-  path.join(__dirname, "data");
+process.env.DATA_DIR ||
+process.env.RAILWAY_VOLUME_MOUNT_PATH ||
+path.join(__dirname, "data");
 
 const SESSION_DIR = path.join(DATA_DIR, "sessions");
 const MEDIA_DIR = path.join(DATA_DIR, "media");
@@ -92,7 +142,7 @@ DIRECTORIES
 ===================================================== */
 
 for (const dir of [DATA_DIR, SESSION_DIR, MEDIA_DIR, TOOLS_DIR]) {
-  fs.mkdirSync(dir, { recursive: true });
+fs.mkdirSync(dir, { recursive: true });
 }
 
 /* =====================================================
@@ -100,18 +150,18 @@ DEFAULT SETTINGS
 ===================================================== */
 
 const DEFAULT_SETTINGS = {
-  alwaysOnline: "ON",
-  autoRead: "OFF",
-  botMode: "PUBLIC",
-  statusRead: "ON",
-  statusReact: "GREEN",
-  composing: "ON",
-  antiDelete: "ON",
-  antiDelTarget: "PRIVATE",
-  vvTarget: "PRIVATE",
-  saveTarget: "PRIVATE",
-  botPower: "ON",
-  autoSaveViewOnce: "ON"
+alwaysOnline: "ON",
+autoRead: "OFF",
+botMode: "PUBLIC",
+statusRead: "ON",
+statusReact: "GREEN",
+composing: "ON",
+antiDelete: "ON",
+antiDelTarget: "PRIVATE",
+vvTarget: "PRIVATE",
+saveTarget: "PRIVATE",
+botPower: "ON",
+autoSaveViewOnce: "ON"
 };
 
 /* =====================================================
@@ -132,9 +182,9 @@ RANDOM EMOJI LIST FOR STATUS REACT
 ===================================================== */
 
 const statusReactList = [
-  "❤️", "💚", "💙", "💛", "🤍", "🧡", "💜", "🩷",
-  "🔥", "😂", "😍", "😮", "👍", "🥰", "😎", "🎉",
-  "✨", "💯", "🙌", "🤩", "😘", "🤗", "🌟", "💫"
+"❤️", "💚", "💙", "💛", "🤍", "🧡", "💜", "🩷",
+"🔥", "😂", "😍", "😮", "👍", "🥰", "😎", "🎉",
+"✨", "💯", "🙌", "🤩", "😘", "🤗", "🌟", "💫"
 ];
 
 /* =====================================================
@@ -142,25 +192,25 @@ JSON STORAGE HELPERS
 ===================================================== */
 
 function readJson(file, fallback) {
-  try {
-    if (!fs.existsSync(file)) return fallback;
-    const raw = fs.readFileSync(file, "utf8");
-    if (!raw.trim()) return fallback;
-    return JSON.parse(raw);
-  } catch (error) {
-    logger.error({ error: error.message, file }, "JSON read error");
-    return fallback;
-  }
+try {
+if (!fs.existsSync(file)) return fallback;
+const raw = fs.readFileSync(file, "utf8");
+if (!raw.trim()) return fallback;
+return JSON.parse(raw);
+} catch (error) {
+logger.error({ error: error.message, file }, "JSON read error");
+return fallback;
+}
 }
 
 function writeJson(file, data) {
-  try {
-    const temp = `${file}.tmp`;
-    fs.writeFileSync(temp, JSON.stringify(data, null, 2), "utf8");
-    fs.renameSync(temp, file);
-  } catch (error) {
-    logger.error({ error: error.message, file }, "JSON write error");
-  }
+try {
+const temp = ${file}.tmp;
+fs.writeFileSync(temp, JSON.stringify(data, null, 2), "utf8");
+fs.renameSync(temp, file);
+} catch (error) {
+logger.error({ error: error.message, file }, "JSON write error");
+}
 }
 
 const settingsDB = readJson(SETTINGS_FILE, {});
@@ -171,51 +221,51 @@ USERNAME HELPERS
 ===================================================== */
 
 function cleanUsername(username) {
-  return String(username || "default")
-    .trim()
-    .replace(/[^a-zA-Z0-9_-]/g, "_")
-    .slice(0, 60) || "default";
+return String(username || "default")
+.trim()
+.replace(/[^a-zA-Z0-9_-]/g, "_")
+.slice(0, 60) || "default";
 }
 
 function sessionPath(username) {
-  return path.join(SESSION_DIR, `session_${cleanUsername(username)}`);
+return path.join(SESSION_DIR, session_${cleanUsername(username)});
 }
 
 function getSettings(username) {
-  const key = cleanUsername(username);
-  if (!settingsDB[key]) {
-    settingsDB[key] = { ...DEFAULT_SETTINGS };
-    writeJson(SETTINGS_FILE, settingsDB);
-  } else {
-    settingsDB[key] = { ...DEFAULT_SETTINGS, ...settingsDB[key] };
-  }
-  return settingsDB[key];
+const key = cleanUsername(username);
+if (!settingsDB[key]) {
+settingsDB[key] = { ...DEFAULT_SETTINGS };
+writeJson(SETTINGS_FILE, settingsDB);
+} else {
+settingsDB[key] = { ...DEFAULT_SETTINGS, ...settingsDB[key] };
+}
+return settingsDB[key];
 }
 
 function saveSettings(username, settings) {
-  const key = cleanUsername(username);
-  settingsDB[key] = { ...DEFAULT_SETTINGS, ...settings };
-  writeJson(SETTINGS_FILE, settingsDB);
+const key = cleanUsername(username);
+settingsDB[key] = { ...DEFAULT_SETTINGS, ...settings };
+writeJson(SETTINGS_FILE, settingsDB);
 }
 
 function getStats(username) {
-  const key = cleanUsername(username);
-  if (!statsDB[key]) {
-    statsDB[key] = {
-      messages: 0,
-      commands: 0,
-      downloads: 0,
-      startedAt: Date.now(),
-      connectedAt: null,
-      lastSeen: null
-    };
-    writeJson(STATS_FILE, statsDB);
-  }
-  return statsDB[key];
+const key = cleanUsername(username);
+if (!statsDB[key]) {
+statsDB[key] = {
+messages: 0,
+commands: 0,
+downloads: 0,
+startedAt: Date.now(),
+connectedAt: null,
+lastSeen: null
+};
+writeJson(STATS_FILE, statsDB);
+}
+return statsDB[key];
 }
 
 function saveStats() {
-  writeJson(STATS_FILE, statsDB);
+writeJson(STATS_FILE, statsDB);
 }
 
 /* =====================================================
@@ -223,36 +273,36 @@ BOT STATUS
 ===================================================== */
 
 function isConnected(sock) {
-  return !!(sock && sock.user && sock.user.id);
+return !!(sock && sock.user && sock.user.id);
 }
 
 function getOwnerJid(sock) {
-  if (!sock?.user?.id) return null;
-  return sock.user.id;
+if (!sock?.user?.id) return null;
+return sock.user.id;
 }
 
 function jidNumber(jid) {
-  if (!jid) return "";
-  return String(jid).split("@")[0].split(":")[0].replace(/\D/g, "");
+if (!jid) return "";
+return String(jid).split("@")[0].split(":")[0].replace(/\D/g, "");
 }
 
 function jidFromPhone(phone) {
-  const number = String(phone || "").replace(/\D/g, "");
-  if (!number) return null;
-  return `${number}@s.whatsapp.net`;
+const number = String(phone || "").replace(/\D/g, "");
+if (!number) return null;
+return ${number}@s.whatsapp.net;
 }
 
 function normalizePhone(phone) {
-  return String(phone || "").replace(/\D/g, "").replace(/^00/, "");
+return String(phone || "").replace(/\D/g, "").replace(/^00/, "");
 }
 
 function isOwner(sock, msg) {
-  const owner = getOwnerJid(sock);
-  if (!owner) return false;
-  if (msg.key?.fromMe) return true;
-  const sender = msg.key?.participant || msg.key?.remoteJid;
-  if (!sender) return false;
-  return jidNumber(sender) === jidNumber(owner);
+const owner = getOwnerJid(sock);
+if (!owner) return false;
+if (msg.key?.fromMe) return true;
+const sender = msg.key?.participant || msg.key?.remoteJid;
+if (!sender) return false;
+return jidNumber(sender) === jidNumber(owner);
 }
 
 /* =====================================================
@@ -260,9 +310,9 @@ STAT HELPERS
 ===================================================== */
 
 function incrementStat(username, field, amount = 1) {
-  const stats = getStats(username);
-  stats[field] = Number(stats[field] || 0) + amount;
-  saveStats();
+const stats = getStats(username);
+stats[field] = Number(stats[field] || 0) + amount;
+saveStats();
 }
 
 /* =====================================================
@@ -270,52 +320,52 @@ MESSAGE CACHE (ANTI-DELETE)
 ===================================================== */
 
 function cacheKey(key) {
-  if (!key) return null;
-  return [key.remoteJid || "", key.id || "", key.participant || ""].join(":");
+if (!key) return null;
+return [key.remoteJid || "", key.id || "", key.participant || ""].join(":");
 }
 
 function cacheMessage(msg) {
-  if (!msg || !msg.key || !msg.message) return;
-  const key = cacheKey(msg.key);
-  if (!key) return;
+if (!msg || !msg.key || !msg.message) return;
+const key = cacheKey(msg.key);
+if (!key) return;
 
-  messageCache.set(key, { message: msg, savedAt: Date.now() });
+messageCache.set(key, { message: msg, savedAt: Date.now() });
 
-  if (messageCache.size > MAX_MESSAGE_CACHE) {
-    const first = messageCache.keys().next().value;
-    if (first) messageCache.delete(first);
-  }
+if (messageCache.size > MAX_MESSAGE_CACHE) {
+const first = messageCache.keys().next().value;
+if (first) messageCache.delete(first);
+}
 }
 
 function getCachedMessage(key) {
-  if (!key) return null;
+if (!key) return null;
 
-  const item = messageCache.get(cacheKey(key));
-  if (item) {
-    if (Date.now() - item.savedAt > CACHE_TTL) {
-      messageCache.delete(cacheKey(key));
-      return null;
-    }
-    return item.message;
-  }
+const item = messageCache.get(cacheKey(key));
+if (item) {
+if (Date.now() - item.savedAt > CACHE_TTL) {
+messageCache.delete(cacheKey(key));
+return null;
+}
+return item.message;
+}
 
-  for (const [cacheK, cacheItem] of messageCache) {
-    if (cacheK.endsWith(`:${key.id}`) || cacheK.includes(`:${key.id}:`)) {
-      if (Date.now() - cacheItem.savedAt > CACHE_TTL) {
-        messageCache.delete(cacheK);
-        continue;
-      }
-      return cacheItem.message;
-    }
-  }
-  return null;
+for (const [cacheK, cacheItem] of messageCache) {
+if (cacheK.endsWith(:${key.id}) || cacheK.includes(:${key.id}:)) {
+if (Date.now() - cacheItem.savedAt > CACHE_TTL) {
+messageCache.delete(cacheK);
+continue;
+}
+return cacheItem.message;
+}
+}
+return null;
 }
 
 setInterval(() => {
-  const now = Date.now();
-  for (const [key, item] of messageCache) {
-    if (now - item.savedAt > CACHE_TTL) messageCache.delete(key);
-  }
+const now = Date.now();
+for (const [key, item] of messageCache) {
+if (now - item.savedAt > CACHE_TTL) messageCache.delete(key);
+}
 }, 10 * 60 * 1000);
 
 /* =====================================================
@@ -323,14 +373,14 @@ MESSAGE TEXT
 ===================================================== */
 
 function getMessageText(msg) {
-  if (!msg?.message) return "";
-  const message = normalizeMessageContent(msg.message) || msg.message;
-  if (message.conversation) return message.conversation;
-  if (message.extendedTextMessage?.text) return message.extendedTextMessage.text;
-  if (message.imageMessage?.caption) return message.imageMessage.caption;
-  if (message.videoMessage?.caption) return message.videoMessage.caption;
-  if (message.documentMessage?.caption) return message.documentMessage.caption;
-  return "";
+if (!msg?.message) return "";
+const message = normalizeMessageContent(msg.message) || msg.message;
+if (message.conversation) return message.conversation;
+if (message.extendedTextMessage?.text) return message.extendedTextMessage.text;
+if (message.imageMessage?.caption) return message.imageMessage.caption;
+if (message.videoMessage?.caption) return message.videoMessage.caption;
+if (message.documentMessage?.caption) return message.documentMessage.caption;
+return "";
 }
 
 /* =====================================================
@@ -338,11 +388,11 @@ GROUP / PRIVATE / STATUS CHECKS
 ===================================================== */
 
 function isGroupJid(jid) {
-  return String(jid || "").endsWith("@g.us");
+return String(jid || "").endsWith("@g.us");
 }
 
 function isStatusJid(jid) {
-  return jid === "status@broadcast";
+return jid === "status@broadcast";
 }
 
 /* =====================================================
@@ -350,28 +400,28 @@ VIEW-ONCE DETECTION
 ===================================================== */
 
 function unwrapViewOnce(msg) {
-  if (!msg?.message) return null;
-  const m = msg.message;
-  const wrapper =
-    m.viewOnceMessage ||
-    m.viewOnceMessageV2 ||
-    m.viewOnceMessageV2Extension;
+if (!msg?.message) return null;
+const m = msg.message;
+const wrapper =
+m.viewOnceMessage ||
+m.viewOnceMessageV2 ||
+m.viewOnceMessageV2Extension;
 
-  if (!wrapper?.message) return null;
+if (!wrapper?.message) return null;
 
-  const innerType = getContentType(wrapper.message);
-  const inner = wrapper.message[innerType];
-  if (!inner) return null;
+const innerType = getContentType(wrapper.message);
+const inner = wrapper.message[innerType];
+if (!inner) return null;
 
-  return {
-    type: innerType,
-    content: inner,
-    innerMessage: wrapper.message
-  };
+return {
+type: innerType,
+content: inner,
+innerMessage: wrapper.message
+};
 }
 
 function isViewOnceMessage(msg) {
-  return !!unwrapViewOnce(msg);
+return !!unwrapViewOnce(msg);
 }
 
 /* =====================================================
@@ -379,22 +429,22 @@ BOT MODE
 ===================================================== */
 
 function canProcessMessage(sock, username, msg) {
-  const settings = getSettings(username);
-  const remoteJid = msg.key?.remoteJid;
-  if (!remoteJid) return false;
-  if (settings.botPower !== "ON") return false;
+const settings = getSettings(username);
+const remoteJid = msg.key?.remoteJid;
+if (!remoteJid) return false;
+if (settings.botPower !== "ON") return false;
 
-  const mode = String(settings.botMode || "PUBLIC").toUpperCase();
-  if (mode === "PUBLIC") return true;
+const mode = String(settings.botMode || "PUBLIC").toUpperCase();
+if (mode === "PUBLIC") return true;
 
-  if (mode === "PRIVATE") {
-    const owner = getOwnerJid(sock);
-    if (!owner) return false;
-    return (msg.key?.fromMe || remoteJid === owner);
-  }
+if (mode === "PRIVATE") {
+const owner = getOwnerJid(sock);
+if (!owner) return false;
+return (msg.key?.fromMe || remoteJid === owner);
+}
 
-  if (mode === "INBOX") return !isGroupJid(remoteJid);
-  return true;
+if (mode === "INBOX") return !isGroupJid(remoteJid);
+return true;
 }
 
 /* =====================================================
@@ -402,22 +452,22 @@ MEDIA HELPERS
 ===================================================== */
 
 function getMediaInfo(message) {
-  if (!message) return null;
-  const normalized = normalizeMessageContent(message) || message;
-  const type = getContentType(normalized);
-  if (!type) return null;
+if (!message) return null;
+const normalized = normalizeMessageContent(message) || message;
+const type = getContentType(normalized);
+if (!type) return null;
 
-  const map = {
-    imageMessage: "image",
-    videoMessage: "video",
-    audioMessage: "audio",
-    documentMessage: "document",
-    stickerMessage: "sticker"
-  };
+const map = {
+imageMessage: "image",
+videoMessage: "video",
+audioMessage: "audio",
+documentMessage: "document",
+stickerMessage: "sticker"
+};
 
-  const mediaType = map[type];
-  if (!mediaType) return null;
-  return { type, mediaType, content: normalized[type] };
+const mediaType = map[type];
+if (!mediaType) return null;
+return { type, mediaType, content: normalized[type] };
 }
 
 /* =====================================================
@@ -425,31 +475,31 @@ QUOTED MESSAGE
 ===================================================== */
 
 function getQuotedMessage(msg) {
-  if (!msg?.message) return null;
+if (!msg?.message) return null;
 
-  const normalized = normalizeMessageContent(msg.message) || msg.message;
-  const type = getContentType(normalized);
-  if (!type) return null;
+const normalized = normalizeMessageContent(msg.message) || msg.message;
+const type = getContentType(normalized);
+if (!type) return null;
 
-  const content = normalized[type];
-  const context = content?.contextInfo;
-  if (!context?.quotedMessage || !context?.stanzaId) return null;
+const content = normalized[type];
+const context = content?.contextInfo;
+if (!context?.quotedMessage || !context?.stanzaId) return null;
 
-  const quotedRemoteJid = context.remoteJid || msg.key.remoteJid;
-  const participant = context.participant || quotedRemoteJid;
+const quotedRemoteJid = context.remoteJid || msg.key.remoteJid;
+const participant = context.participant || quotedRemoteJid;
 
-  const botJid = msg.key?.fromMe ? msg.key.remoteJid : null;
-  const fromMe = jidNumber(participant) === jidNumber(botJid);
+const botJid = msg.key?.fromMe ? msg.key.remoteJid : null;
+const fromMe = jidNumber(participant) === jidNumber(botJid);
 
-  return {
-    key: {
-      remoteJid: quotedRemoteJid,
-      fromMe,
-      id: context.stanzaId,
-      participant
-    },
-    message: context.quotedMessage
-  };
+return {
+key: {
+remoteJid: quotedRemoteJid,
+fromMe,
+id: context.stanzaId,
+participant
+},
+message: context.quotedMessage
+};
 }
 
 /* =====================================================
@@ -457,63 +507,63 @@ MEDIA DOWNLOAD
 ===================================================== */
 
 async function downloadWhatsAppMedia(sock, message) {
-  const info = getMediaInfo(message.message);
-  if (!info) throw new Error("No supported media found.");
+const info = getMediaInfo(message.message);
+if (!info) throw new Error("No supported media found.");
 
-  const buffer = await downloadMediaMessage(
-    message,
-    "buffer",
-    {},
-    {
-      logger,
-      reuploadRequest: async (m) => sock.updateMediaMessage(m)
-    }
-  );
+const buffer = await downloadMediaMessage(
+message,
+"buffer",
+{},
+{
+logger,
+reuploadRequest: async (m) => sock.updateMediaMessage(m)
+}
+);
 
-  if (!buffer || !buffer.length) {
-    throw new Error("Downloaded media is empty.");
-  }
+if (!buffer || !buffer.length) {
+throw new Error("Downloaded media is empty.");
+}
 
-  return { buffer, ...info };
+return { buffer, ...info };
 }
 
 async function downloadViewOnceMedia(sock, msg) {
-  const viewOnce = unwrapViewOnce(msg);
-  if (!viewOnce) throw new Error("Not a view-once message.");
+const viewOnce = unwrapViewOnce(msg);
+if (!viewOnce) throw new Error("Not a view-once message.");
 
-  const fakeMessage = {
-    key: msg.key,
-    message: viewOnce.innerMessage
-  };
+const fakeMessage = {
+key: msg.key,
+message: viewOnce.innerMessage
+};
 
-  const buffer = await downloadMediaMessage(
-    fakeMessage,
-    "buffer",
-    {},
-    {
-      logger,
-      reuploadRequest: async (m) => sock.updateMediaMessage(m)
-    }
-  );
+const buffer = await downloadMediaMessage(
+fakeMessage,
+"buffer",
+{},
+{
+logger,
+reuploadRequest: async (m) => sock.updateMediaMessage(m)
+}
+);
 
-  if (!buffer || !buffer.length) {
-    throw new Error("Downloaded view-once media is empty.");
-  }
+if (!buffer || !buffer.length) {
+throw new Error("Downloaded view-once media is empty.");
+}
 
-  const mediaType = {
-    imageMessage: "image",
-    videoMessage: "video",
-    audioMessage: "audio"
-  }[viewOnce.type];
+const mediaType = {
+imageMessage: "image",
+videoMessage: "video",
+audioMessage: "audio"
+}[viewOnce.type];
 
-  if (!mediaType) throw new Error("Unsupported view-once type.");
+if (!mediaType) throw new Error("Unsupported view-once type.");
 
-  return {
-    buffer,
-    mediaType,
-    type: viewOnce.type,
-    content: viewOnce.content
-  };
+return {
+buffer,
+mediaType,
+type: viewOnce.type,
+content: viewOnce.content
+};
 }
 
 /* =====================================================
@@ -521,41 +571,41 @@ SEND SAVED MEDIA
 ===================================================== */
 
 async function sendWhatsAppMedia(sock, jid, media) {
-  const { buffer, mediaType, content } = media;
-  const caption = content?.caption || "";
+const { buffer, mediaType, content } = media;
+const caption = content?.caption || "";
 
-  if (!Buffer.isBuffer(buffer) || !buffer.length) throw new Error("Media buffer is empty.");
-  if (buffer.length > 100 * 1024 * 1024) throw new Error("Media is too large to send.");
+if (!Buffer.isBuffer(buffer) || !buffer.length) throw new Error("Media buffer is empty.");
+if (buffer.length > 100 * 1024 * 1024) throw new Error("Media is too large to send.");
 
-  if (mediaType === "image") {
-    await sock.sendMessage(jid, { image: buffer, caption });
-    return;
-  }
-  if (mediaType === "video") {
-    await sock.sendMessage(jid, { video: buffer, caption });
-    return;
-  }
-  if (mediaType === "audio") {
-    await sock.sendMessage(jid, {
-      audio: buffer,
-      mimetype: content?.mimetype || "audio/mp4",
-      ptt: !!content?.ptt
-    });
-    return;
-  }
-  if (mediaType === "sticker") {
-    await sock.sendMessage(jid, { sticker: buffer });
-    return;
-  }
-  if (mediaType === "document") {
-    await sock.sendMessage(jid, {
-      document: buffer,
-      mimetype: content?.mimetype || "application/octet-stream",
-      fileName: content?.fileName || "DIMUWA_FILE"
-    });
-    return;
-  }
-  throw new Error("Unsupported media type.");
+if (mediaType === "image") {
+await sock.sendMessage(jid, { image: buffer, caption });
+return;
+}
+if (mediaType === "video") {
+await sock.sendMessage(jid, { video: buffer, caption });
+return;
+}
+if (mediaType === "audio") {
+await sock.sendMessage(jid, {
+audio: buffer,
+mimetype: content?.mimetype || "audio/mp4",
+ptt: !!content?.ptt
+});
+return;
+}
+if (mediaType === "sticker") {
+await sock.sendMessage(jid, { sticker: buffer });
+return;
+}
+if (mediaType === "document") {
+await sock.sendMessage(jid, {
+document: buffer,
+mimetype: content?.mimetype || "application/octet-stream",
+fileName: content?.fileName || "DIMUWA_FILE"
+});
+return;
+}
+throw new Error("Unsupported media type.");
 }
 
 /* =====================================================
@@ -563,40 +613,41 @@ AUTO-SAVE VIEW-ONCE (NEW FEATURE)
 ===================================================== */
 
 async function handleAutoSaveViewOnce(username, sock, msg) {
-  try {
-    const settings = getSettings(username);
-    if (settings.autoSaveViewOnce !== "ON") return false;
-    if (!isViewOnceMessage(msg)) return false;
-    if (msg.key?.fromMe) return false;
+try {
+const settings = getSettings(username);
+if (settings.autoSaveViewOnce !== "ON") return false;
+if (!isViewOnceMessage(msg)) return false;
+if (msg.key?.fromMe) return false;
 
-    const owner = getOwnerJid(sock);
-    if (!owner) return false;
+const owner = getOwnerJid(sock);  
+if (!owner) return false;  
 
-    const sender = msg.key?.participant || msg.key?.remoteJid;
-    if (jidNumber(sender) === jidNumber(owner)) return false;
+const sender = msg.key?.participant || msg.key?.remoteJid;  
+if (jidNumber(sender) === jidNumber(owner)) return false;  
 
-    logger.info({ username, from: sender }, "Auto-saving view-once media");
+logger.info({ username, from: sender }, "Auto-saving view-once media");  
 
-    const media = await downloadViewOnceMedia(sock, msg);
-    const senderName = msg.pushName || jidNumber(sender);
-    const chatType = isGroupJid(msg.key.remoteJid) ? "GROUP" : "PRIVATE";
+const media = await downloadViewOnceMedia(sock, msg);  
+const senderName = msg.pushName || jidNumber(sender);  
+const chatType = isGroupJid(msg.key.remoteJid) ? "GROUP" : "PRIVATE";  
 
-    const caption =
-      `🔓 *AUTO-SAVED VIEW ONCE* 🔓\n\n` +
-      `👤 From: ${senderName}\n` +
-      `📱 Number: ${jidNumber(sender)}\n` +
-      `💬 Chat: ${chatType}\n` +
-      `🕐 Time: ${new Date().toLocaleString()}\n\n` +
-      `🤖 DIMUWA MINI BOT`;
+const caption =  
+  `🔓 *AUTO-SAVED VIEW ONCE* 🔓\n\n` +  
+  `👤 From: ${senderName}\n` +  
+  `📱 Number: ${jidNumber(sender)}\n` +  
+  `💬 Chat: ${chatType}\n` +  
+  `🕐 Time: ${new Date().toLocaleString()}\n\n` +  
+  `🤖 DIMUWA MINI BOT`;  
 
-    await sendWhatsAppMedia(sock, owner, { ...media, caption });
+await sendWhatsAppMedia(sock, owner, { ...media, caption });  
 
-    logger.info({ username, to: owner }, "View-once auto-saved");
-    return true;
-  } catch (error) {
-    logger.error({ error: error.message }, "Auto-save view-once failed");
-    return false;
-  }
+logger.info({ username, to: owner }, "View-once auto-saved");  
+return true;
+
+} catch (error) {
+logger.error({ error: error.message }, "Auto-save view-once failed");
+return false;
+}
 }
 
 /* =====================================================
@@ -604,41 +655,42 @@ async function handleAutoSaveViewOnce(username, sock, msg) {
 ===================================================== */
 
 async function handleViewOnce(sock, username, msg) {
-  const quoted = getQuotedMessage(msg);
-  if (!quoted) {
-    await sock.sendMessage(msg.key.remoteJid, {
-      text: "❌ Reply to a View Once image/video/audio with .vv"
-    });
-    return;
-  }
+const quoted = getQuotedMessage(msg);
+if (!quoted) {
+await sock.sendMessage(msg.key.remoteJid, {
+text: "❌ Reply to a View Once image/video/audio with .vv"
+});
+return;
+}
 
-  try {
-    let media;
-    if (isViewOnceMessage(quoted)) {
-      media = await downloadViewOnceMedia(sock, quoted);
-    } else {
-      media = await downloadWhatsAppMedia(sock, quoted);
-    }
+try {
+let media;
+if (isViewOnceMessage(quoted)) {
+media = await downloadViewOnceMedia(sock, quoted);
+} else {
+media = await downloadWhatsAppMedia(sock, quoted);
+}
 
-    const settings = getSettings(username);
-    const target =
-      settings.vvTarget === "PRIVATE"
-        ? getOwnerJid(sock)
-        : msg.key.remoteJid;
+const settings = getSettings(username);  
+const target =  
+  settings.vvTarget === "PRIVATE"  
+    ? getOwnerJid(sock)  
+    : msg.key.remoteJid;  
 
-    if (!target) throw new Error("Owner inbox is not available.");
+if (!target) throw new Error("Owner inbox is not available.");  
 
-    await sendWhatsAppMedia(sock, target, media);
+await sendWhatsAppMedia(sock, target, media);  
 
-    await sock.sendMessage(msg.key.remoteJid, {
-      text: "✅ View Once media saved successfully."
-    });
-  } catch (error) {
-    logger.error({ error: error.message }, ".vv error");
-    await sock.sendMessage(msg.key.remoteJid, {
-      text: `❌ .vv failed\n\n${error.message}`
-    });
-  }
+await sock.sendMessage(msg.key.remoteJid, {  
+  text: "✅ View Once media saved successfully."  
+});
+
+} catch (error) {
+logger.error({ error: error.message }, ".vv error");
+await sock.sendMessage(msg.key.remoteJid, {
+text: ❌ .vv failed\n\n${error.message}
+});
+}
 }
 
 /* =====================================================
@@ -646,38 +698,39 @@ async function handleViewOnce(sock, username, msg) {
 ===================================================== */
 
 async function handleSave(sock, username, msg) {
-  const quoted = getQuotedMessage(msg);
-  const targetMessage = quoted || msg;
+const quoted = getQuotedMessage(msg);
+const targetMessage = quoted || msg;
 
-  try {
-    let media;
-    if (isViewOnceMessage(targetMessage)) {
-      media = await downloadViewOnceMedia(sock, targetMessage);
-    } else {
-      media = await downloadWhatsAppMedia(sock, targetMessage);
-    }
+try {
+let media;
+if (isViewOnceMessage(targetMessage)) {
+media = await downloadViewOnceMedia(sock, targetMessage);
+} else {
+media = await downloadWhatsAppMedia(sock, targetMessage);
+}
 
-    const settings = getSettings(username);
-    const target =
-      settings.saveTarget === "PRIVATE"
-        ? getOwnerJid(sock)
-        : msg.key.remoteJid;
+const settings = getSettings(username);  
+const target =  
+  settings.saveTarget === "PRIVATE"  
+    ? getOwnerJid(sock)  
+    : msg.key.remoteJid;  
 
-    if (!target) throw new Error("Owner inbox is not available.");
+if (!target) throw new Error("Owner inbox is not available.");  
 
-    await sendWhatsAppMedia(sock, target, media);
+await sendWhatsAppMedia(sock, target, media);  
 
-    if (target !== msg.key.remoteJid) {
-      await sock.sendMessage(msg.key.remoteJid, {
-        text: "✅ Media saved to My Inbox."
-      });
-    }
-  } catch (error) {
-    logger.error({ error: error.message }, ".save error");
-    await sock.sendMessage(msg.key.remoteJid, {
-      text: `❌ .save failed\n\nReply to an image, video, audio, document or sticker.\n\n${error.message}`
-    });
-  }
+if (target !== msg.key.remoteJid) {  
+  await sock.sendMessage(msg.key.remoteJid, {  
+    text: "✅ Media saved to My Inbox."  
+  });  
+}
+
+} catch (error) {
+logger.error({ error: error.message }, ".save error");
+await sock.sendMessage(msg.key.remoteJid, {
+text: ❌ .save failed\n\nReply to an image, video, audio, document or sticker.\n\n${error.message}
+});
+}
 }
 
 /* =====================================================
@@ -685,8 +738,8 @@ SETTINGS MENU
 ===================================================== */
 
 function settingsMenu(username) {
-  const s = getSettings(username);
-  return `⚙️ DIMUWA MINI BOT SETTINGS
+const s = getSettings(username);
+return `⚙️ DIMUWA MINI BOT SETTINGS
 │ Reply with the code below to update
 
 • PRESENCE & SCOPE •
@@ -736,58 +789,58 @@ SETTINGS CODE PROCESSOR
 ===================================================== */
 
 async function processSettingsCode(sock, username, msg, code) {
-  if (!isOwner(sock, msg)) {
-    await sock.sendMessage(msg.key.remoteJid, {
-      text: "❌ Only bot owner can change settings."
-    });
-    return true;
-  }
+if (!isOwner(sock, msg)) {
+await sock.sendMessage(msg.key.remoteJid, {
+text: "❌ Only bot owner can change settings."
+});
+return true;
+}
 
-  const s = getSettings(username);
-  let changed = false;
-  let message = "";
+const s = getSettings(username);
+let changed = false;
+let message = "";
 
-  switch (code) {
-    case "1.1": s.alwaysOnline = "ON"; changed = true; message = "Always Online → ON"; break;
-    case "1.2": s.alwaysOnline = "OFF"; changed = true; message = "Always Online → OFF"; break;
-    case "2.1": s.autoRead = "ON"; changed = true; message = "Auto Read → ON"; break;
-    case "2.2": s.autoRead = "OFF"; changed = true; message = "Auto Read → OFF"; break;
-    case "3.1": s.botMode = "PUBLIC"; changed = true; message = "Bot Mode → PUBLIC"; break;
-    case "3.2": s.botMode = "PRIVATE"; changed = true; message = "Bot Mode → PRIVATE"; break;
-    case "3.3": s.botMode = "INBOX"; changed = true; message = "Bot Mode → INBOX"; break;
-    case "4.1": s.statusRead = "ON"; changed = true; message = "Status Read → ON"; break;
-    case "4.2": s.statusRead = "OFF"; changed = true; message = "Status Read → OFF"; break;
-    case "5.1": s.statusReact = "GREEN"; changed = true; message = "Status React → GREEN 💚"; break;
-    case "5.2": s.statusReact = "RANDOM"; changed = true; message = "Status React → RANDOM 🎲"; break;
-    case "5.3": s.statusReact = "OFF"; changed = true; message = "Status React → OFF"; break;
-    case "7.1": s.composing = "ON"; changed = true; message = "Composing → ON"; break;
-    case "7.2": s.composing = "OFF"; changed = true; message = "Composing → OFF"; break;
-    case "9.1": s.antiDelete = "ON"; changed = true; message = "Anti-Delete → ON"; break;
-    case "9.2": s.antiDelete = "OFF"; changed = true; message = "Anti-Delete → OFF"; break;
-    case "10.1": s.antiDelTarget = "SAME"; changed = true; message = "Anti-Delete Target → SAME CHAT"; break;
-    case "10.2": s.antiDelTarget = "PRIVATE"; changed = true; message = "Anti-Delete Target → MY INBOX"; break;
-    case "11.1": s.vvTarget = "SAME"; changed = true; message = ".vv Target → SAME CHAT"; break;
-    case "11.2": s.vvTarget = "PRIVATE"; changed = true; message = ".vv Target → MY INBOX"; break;
-    case "12.1": s.saveTarget = "SAME"; changed = true; message = ".save Target → SAME CHAT"; break;
-    case "12.2": s.saveTarget = "PRIVATE"; changed = true; message = ".save Target → MY INBOX"; break;
-    case "13.1": s.botPower = "ON"; changed = true; message = "Bot Power → ON"; break;
-    case "13.2": s.botPower = "OFF"; changed = true; message = "Bot Power → OFF"; break;
-    case "14.1": s.autoSaveViewOnce = "ON"; changed = true; message = "Auto-Save View Once → ON"; break;
-    case "14.2": s.autoSaveViewOnce = "OFF"; changed = true; message = "Auto-Save View Once → OFF"; break;
-    default: return false;
-  }
+switch (code) {
+case "1.1": s.alwaysOnline = "ON"; changed = true; message = "Always Online → ON"; break;
+case "1.2": s.alwaysOnline = "OFF"; changed = true; message = "Always Online → OFF"; break;
+case "2.1": s.autoRead = "ON"; changed = true; message = "Auto Read → ON"; break;
+case "2.2": s.autoRead = "OFF"; changed = true; message = "Auto Read → OFF"; break;
+case "3.1": s.botMode = "PUBLIC"; changed = true; message = "Bot Mode → PUBLIC"; break;
+case "3.2": s.botMode = "PRIVATE"; changed = true; message = "Bot Mode → PRIVATE"; break;
+case "3.3": s.botMode = "INBOX"; changed = true; message = "Bot Mode → INBOX"; break;
+case "4.1": s.statusRead = "ON"; changed = true; message = "Status Read → ON"; break;
+case "4.2": s.statusRead = "OFF"; changed = true; message = "Status Read → OFF"; break;
+case "5.1": s.statusReact = "GREEN"; changed = true; message = "Status React → GREEN 💚"; break;
+case "5.2": s.statusReact = "RANDOM"; changed = true; message = "Status React → RANDOM 🎲"; break;
+case "5.3": s.statusReact = "OFF"; changed = true; message = "Status React → OFF"; break;
+case "7.1": s.composing = "ON"; changed = true; message = "Composing → ON"; break;
+case "7.2": s.composing = "OFF"; changed = true; message = "Composing → OFF"; break;
+case "9.1": s.antiDelete = "ON"; changed = true; message = "Anti-Delete → ON"; break;
+case "9.2": s.antiDelete = "OFF"; changed = true; message = "Anti-Delete → OFF"; break;
+case "10.1": s.antiDelTarget = "SAME"; changed = true; message = "Anti-Delete Target → SAME CHAT"; break;
+case "10.2": s.antiDelTarget = "PRIVATE"; changed = true; message = "Anti-Delete Target → MY INBOX"; break;
+case "11.1": s.vvTarget = "SAME"; changed = true; message = ".vv Target → SAME CHAT"; break;
+case "11.2": s.vvTarget = "PRIVATE"; changed = true; message = ".vv Target → MY INBOX"; break;
+case "12.1": s.saveTarget = "SAME"; changed = true; message = ".save Target → SAME CHAT"; break;
+case "12.2": s.saveTarget = "PRIVATE"; changed = true; message = ".save Target → MY INBOX"; break;
+case "13.1": s.botPower = "ON"; changed = true; message = "Bot Power → ON"; break;
+case "13.2": s.botPower = "OFF"; changed = true; message = "Bot Power → OFF"; break;
+case "14.1": s.autoSaveViewOnce = "ON"; changed = true; message = "Auto-Save View Once → ON"; break;
+case "14.2": s.autoSaveViewOnce = "OFF"; changed = true; message = "Auto-Save View Once → OFF"; break;
+default: return false;
+}
 
-  if (changed) {
-    saveSettings(username, s);
-    await sock.sendMessage(msg.key.remoteJid, {
-      text: `✅ SETTING UPDATED\n\n${message}\n\nUse .settings to view current settings.`
-    });
-    if (s.alwaysOnline === "ON") {
-      await sock.sendPresenceUpdate("available").catch(() => {});
-    }
-    return true;
-  }
-  return false;
+if (changed) {
+saveSettings(username, s);
+await sock.sendMessage(msg.key.remoteJid, {
+text: ✅ SETTING UPDATED\n\n${message}\n\nUse .settings to view current settings.
+});
+if (s.alwaysOnline === "ON") {
+await sock.sendPresenceUpdate("available").catch(() => {});
+}
+return true;
+}
+return false;
 }
 
 /* =====================================================
@@ -795,8 +848,8 @@ MENU TEXT
 ===================================================== */
 
 function menuText(username) {
-  const s = getSettings(username);
-  return `👋 DIMUWA MINI BOT 🤖 👑
+const s = getSettings(username);
+return `👋 DIMUWA MINI BOT 🤖 👑
 -- The Mini Whatsapp Bot Experience --
 
 ┌──「 👨‍💻 CREATOR INFO 」──┐
@@ -827,107 +880,79 @@ function menuText(username) {
 }
 
 async function sendMenu(sock, username, jid, msg) {
-  try {
-    await sock.sendMessage(
-      jid,
-      { image: { url: LOGO_URL }, caption: menuText(username) },
-      { quoted: msg }
-    );
-  } catch (error) {
-    logger.error({ error: error.message }, "Menu image failed.");
-    await sock.sendMessage(jid, { text: menuText(username) }, { quoted: msg });
-  }
+try {
+await sock.sendMessage(
+jid,
+{ image: { url: LOGO_URL }, caption: menuText(username) },
+{ quoted: msg }
+);
+} catch (error) {
+logger.error({ error: error.message }, "Menu image failed.");
+await sock.sendMessage(jid, { text: menuText(username) }, { quoted: msg });
+}
 
-  try {
-    await sock.sendMessage(jid, {
-      audio: { url: MENU_AUDIO_URL },
-      mimetype: "audio/mpeg",
-      ptt: false
-    });
-  } catch (error) {
-    logger.error({ error: error.message }, "Menu audio failed.");
-  }
+try {
+await sock.sendMessage(jid, {
+audio: { url: MENU_AUDIO_URL },
+mimetype: "audio/mpeg",
+ptt: false
+});
+} catch (error) {
+logger.error({ error: error.message }, "Menu audio failed.");
+}
 }
 
 async function handleMenuNumber(sock, username, jid, number, msg) {
-  if (number === "1") {
-    await sock.sendMessage(jid, {
-      text: `📥 *DOWNLOAD MENU*\n\n1️⃣ TikTok\n2️⃣ Facebook\n3️⃣ YouTube\n\nSend:\n.tt <url>\n.fb <url>\n.yt <url>\n\nOr simply send the URL.`
-    }, { quoted: msg });
-    return true;
-  }
-  if (number === "2") {
-    await sock.sendMessage(jid, { text: settingsMenu(username) }, { quoted: msg });
-    return true;
-  }
-  if (number === "3") {
-    if (!isOwner(sock, msg)) {
-      await sock.sendMessage(jid, { text: "❌ Owner only command." }, { quoted: msg });
-      return true;
-    }
-    await sock.sendMessage(jid, {
-      text: `👑 *OWNER COMMANDS*\n\n.ping\n.menu\n.settings\n.dp\n.block\n.unblock\n.logout\n.unlink\n\nBot owner:\n${CREATOR_NAME}\n${CREATOR_PHONE}`
-    }, { quoted: msg });
-    return true;
-  }
-  if (number === "4") {
-    await sock.sendMessage(jid, {
-      text: `🛠️ *UTILITY*\n\nReply to an image/video/audio with:\n\n.vv\n.save\n\n.vv = View / resend media\n.save = Save / resend media\n\n💡 View-once media is auto-saved now!`
-    }, { quoted: msg });
-    return true;
-  }
-  if (number === "5") {
-    await sock.sendMessage(jid, {
-      text: `🎮 *FUN COMMANDS*\n\n🎲 .dice\n🎯 .random\n❤️ .love`
-    }, { quoted: msg });
-    return true;
-  }
-  if (number === "6") {
-    await sock.sendMessage(jid, {
-      text: `👥 *GROUP COMMANDS*\n\n.tagall\n\nReply/send in a group to tag members.`
-    }, { quoted: msg });
-    return true;
-  }
-  return false;
+if (number === "1") {
+await sock.sendMessage(jid, {
+text: 📥 *DOWNLOAD MENU*\n\n1️⃣ TikTok\n2️⃣ Facebook\n3️⃣ YouTube\n\nSend:\n.tt <url>\n.fb <url>\n.yt <url>\n\nOr simply send the URL.
+}, { quoted: msg });
+return true;
+}
+if (number === "2") {
+await sock.sendMessage(jid, { text: settingsMenu(username) }, { quoted: msg });
+return true;
+}
+if (number === "3") {
+if (!isOwner(sock, msg)) {
+await sock.sendMessage(jid, { text: "❌ Owner only command." }, { quoted: msg });
+return true;
+}
+await sock.sendMessage(jid, {
+text: 👑 *OWNER COMMANDS*\n\n.ping\n.menu\n.settings\n.dp\n.block\n.unblock\n.logout\n.unlink\n\nBot owner:\n${CREATOR_NAME}\n${CREATOR_PHONE}
+}, { quoted: msg });
+return true;
+}
+if (number === "4") {
+await sock.sendMessage(jid, {
+text: 🛠️ *UTILITY*\n\nReply to an image/video/audio with:\n\n.vv\n.save\n\n.vv = View / resend media\n.save = Save / resend media\n\n💡 View-once media is auto-saved now!
+}, { quoted: msg });
+return true;
+}
+if (number === "5") {
+await sock.sendMessage(jid, {
+text: 🎮 *FUN COMMANDS*\n\n🎲 .dice\n🎯 .random\n❤️ .love
+}, { quoted: msg });
+return true;
+}
+if (number === "6") {
+await sock.sendMessage(jid, {
+text: 👥 *GROUP COMMANDS*\n\n.tagall\n\nReply/send in a group to tag members.
+}, { quoted: msg });
+return true;
+}
+return false;
 }
 
 function aliveText(username) {
-  const s = getSettings(username);
-  return `╭━━〔 🟢 DIMUWA BOT ALIVE 〕━━╮
-┃
-┃ 🤖 Bot: ONLINE
-┃ 👤 User: ${username}
-┃ ⚡ Power: ${s.botPower}
-┃ 📥 Mode: ${s.botMode}
-┃ 🔓 Auto View-Once: ${s.autoSaveViewOnce}
-┃
-┃ © DIMUTH SATHSARA
-╰━━━━━━━━━━━━━━━━━━━━━━╯`;
+const s = getSettings(username);
+return ╭━━〔 🟢 DIMUWA BOT ALIVE 〕━━╮   ┃   ┃ 🤖 Bot: ONLINE   ┃ 👤 User: ${username}   ┃ ⚡ Power: ${s.botPower}   ┃ 📥 Mode: ${s.botMode}   ┃ 🔓 Auto View-Once: ${s.autoSaveViewOnce}   ┃   ┃ © DIMUTH SATHSARA   ╰━━━━━━━━━━━━━━━━━━━━━━╯;
 }
 
 function statusText(username, sock) {
-  const s = getSettings(username);
-  const stats = getStats(username);
-  return `╭━━〔 📊 DIMUWA STATUS 〕━━╮
-┃
-┃ 🤖 Status: ${isConnected(sock) ? "CONNECTED" : "OFFLINE"}
-┃ 👤 Username: ${username}
-┃ 📱 Number: ${jidNumber(sock.user?.id) || "-"}
-┃
-┃ ⚙️ Bot Mode: ${s.botMode}
-┃ 🔌 Bot Power: ${s.botPower}
-┃ 👁 Auto Read: ${s.autoRead}
-┃ 🟢 Always Online: ${s.alwaysOnline}
-┃ 🗑 Anti Delete: ${s.antiDelete}
-┃ 🔓 Auto View-Once: ${s.autoSaveViewOnce}
-┃ 📱 .vv Target: ${s.vvTarget}
-┃ 💾 .save Target: ${s.saveTarget}
-┃
-┃ 💬 Messages: ${stats.messages}
-┃ ⚡ Commands: ${stats.commands}
-┃ 📥 Downloads: ${stats.downloads}
-┃
-╰━━━━━━━━━━━━━━━━━━━━━━╯`;
+const s = getSettings(username);
+const stats = getStats(username);
+return ╭━━〔 📊 DIMUWA STATUS 〕━━╮   ┃   ┃ 🤖 Status: ${isConnected(sock) ? "CONNECTED" : "OFFLINE"}   ┃ 👤 Username: ${username}   ┃ 📱 Number: ${jidNumber(sock.user?.id) || "-"}   ┃   ┃ ⚙️ Bot Mode: ${s.botMode}   ┃ 🔌 Bot Power: ${s.botPower}   ┃ 👁 Auto Read: ${s.autoRead}   ┃ 🟢 Always Online: ${s.alwaysOnline}   ┃ 🗑 Anti Delete: ${s.antiDelete}   ┃ 🔓 Auto View-Once: ${s.autoSaveViewOnce}   ┃ 📱 .vv Target: ${s.vvTarget}   ┃ 💾 .save Target: ${s.saveTarget}   ┃   ┃ 💬 Messages: ${stats.messages}   ┃ ⚡ Commands: ${stats.commands}   ┃ 📥 Downloads: ${stats.downloads}   ┃   ╰━━━━━━━━━━━━━━━━━━━━━━╯;
 }
 
 /* =====================================================
@@ -935,105 +960,105 @@ PING / FUN / TAGALL
 ===================================================== */
 
 async function handlePing(sock, jid, msg) {
-  const start = Date.now();
-  try {
-    await sock.sendMessage(jid, { text: "🏓 Pinging..." }, { quoted: msg });
-    const ms = Date.now() - start;
-    await sock.sendMessage(jid, {
-      text: `🏓 *PONG!*\n\n⚡ Response: ${ms} ms\n🟢 Status: Online\n🤖 DIMUWA MINI BOT\n👑 Creator: ${CREATOR_NAME}`
-    });
-  } catch (error) {
-    logger.error({ error: error.message }, "Ping failed.");
-  }
+const start = Date.now();
+try {
+await sock.sendMessage(jid, { text: "🏓 Pinging..." }, { quoted: msg });
+const ms = Date.now() - start;
+await sock.sendMessage(jid, {
+text: 🏓 *PONG!*\n\n⚡ Response: ${ms} ms\n🟢 Status: Online\n🤖 DIMUWA MINI BOT\n👑 Creator: ${CREATOR_NAME}
+});
+} catch (error) {
+logger.error({ error: error.message }, "Ping failed.");
+}
 }
 
 async function handleFunCommand(sock, jid, command, msg) {
-  if (command === ".dice") {
-    const value = Math.floor(Math.random() * 6) + 1;
-    await sock.sendMessage(jid, { text: `🎲 Dice: *${value}*` }, { quoted: msg });
-    return true;
-  }
-  if (command === ".random") {
-    const value = Math.floor(Math.random() * 100) + 1;
-    await sock.sendMessage(jid, { text: `🎯 Random number: *${value}*` }, { quoted: msg });
-    return true;
-  }
-  if (command === ".love") {
-    const value = Math.floor(Math.random() * 101);
-    await sock.sendMessage(jid, { text: `❤️ Love: *${value}%*` }, { quoted: msg });
-    return true;
-  }
-  return false;
+if (command === ".dice") {
+const value = Math.floor(Math.random() * 6) + 1;
+await sock.sendMessage(jid, { text: 🎲 Dice: *${value}* }, { quoted: msg });
+return true;
+}
+if (command === ".random") {
+const value = Math.floor(Math.random() * 100) + 1;
+await sock.sendMessage(jid, { text: 🎯 Random number: *${value}* }, { quoted: msg });
+return true;
+}
+if (command === ".love") {
+const value = Math.floor(Math.random() * 101);
+await sock.sendMessage(jid, { text: ❤️ Love: *${value}%* }, { quoted: msg });
+return true;
+}
+return false;
 }
 
 async function handleTagAll(sock, jid, msg) {
-  if (!isGroupJid(jid)) {
-    await sock.sendMessage(jid, { text: "❌ .tagall can only be used in groups." }, { quoted: msg });
-    return;
-  }
-  try {
-    const metadata = await sock.groupMetadata(jid);
-    const participants = metadata.participants || [];
-    if (!participants.length) return;
-    const mentions = participants.map(p => p.id);
-    const body = `📢 *DIMUWA TAG ALL*\n\n${participants.map(p => `@${jidNumber(p.id)}`).join(" ")}`;
-    await sock.sendMessage(jid, { text: body, mentions }, { quoted: msg });
-  } catch (error) {
-    await sock.sendMessage(jid, { text: `❌ Tag all failed.\n\n${error.message}` }, { quoted: msg });
-  }
+if (!isGroupJid(jid)) {
+await sock.sendMessage(jid, { text: "❌ .tagall can only be used in groups." }, { quoted: msg });
+return;
+}
+try {
+const metadata = await sock.groupMetadata(jid);
+const participants = metadata.participants || [];
+if (!participants.length) return;
+const mentions = participants.map(p => p.id);
+const body = 📢 *DIMUWA TAG ALL*\n\n${participants.map(p => @${jidNumber(p.id)}).join(" ")};
+await sock.sendMessage(jid, { text: body, mentions }, { quoted: msg });
+} catch (error) {
+await sock.sendMessage(jid, { text: ❌ Tag all failed.\n\n${error.message} }, { quoted: msg });
+}
 }
 /* =====================================================
 YT-DLP (STANDALONE BINARY)
 ===================================================== */
 
 function ytDlpBinaryName() {
-  if (process.platform !== "linux") throw new Error("Linux only.");
-  if (process.arch === "x64") return "yt-dlp_linux";
-  if (process.arch === "arm64") return "yt-dlp_linux_aarch64";
-  throw new Error(`Unsupported arch: ${process.arch}`);
+if (process.platform !== "linux") throw new Error("Linux only.");
+if (process.arch === "x64") return "yt-dlp_linux";
+if (process.arch === "arm64") return "yt-dlp_linux_aarch64";
+throw new Error(Unsupported arch: ${process.arch});
 }
 
 function ytDlpDownloadUrl() {
-  return "https://github.com/yt-dlp/yt-dlp/releases/latest/download/" + ytDlpBinaryName();
+return "https://github.com/yt-dlp/yt-dlp/releases/latest/download/" + ytDlpBinaryName();
 }
 
 function downloadFile(url, destination) {
-  return new Promise((resolve, reject) => {
-    const request = https.get(url, { headers: { "User-Agent": "DIMUWA-MINI-BOT/5.1" } }, (response) => {
-      if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
-        response.resume();
-        return downloadFile(response.headers.location, destination).then(resolve).catch(reject);
-      }
-      if (response.statusCode !== 200) {
-        response.resume();
-        reject(new Error(`Download failed: HTTP ${response.statusCode}`));
-        return;
-      }
-      const file = fs.createWriteStream(destination);
-      response.pipe(file);
-      file.on("finish", () => { file.close(() => resolve()); });
-      file.on("error", reject);
-    });
-    request.on("error", reject);
-    request.setTimeout(120000, () => { request.destroy(new Error("yt-dlp download timed out.")); });
-  });
+return new Promise((resolve, reject) => {
+const request = https.get(url, { headers: { "User-Agent": "DIMUWA-MINI-BOT/5.1" } }, (response) => {
+if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+response.resume();
+return downloadFile(response.headers.location, destination).then(resolve).catch(reject);
+}
+if (response.statusCode !== 200) {
+response.resume();
+reject(new Error(Download failed: HTTP ${response.statusCode}));
+return;
+}
+const file = fs.createWriteStream(destination);
+response.pipe(file);
+file.on("finish", () => { file.close(() => resolve()); });
+file.on("error", reject);
+});
+request.on("error", reject);
+request.setTimeout(120000, () => { request.destroy(new Error("yt-dlp download timed out.")); });
+});
 }
 
 async function ensureYtDlp() {
-  const binary = path.join(TOOLS_DIR, "yt-dlp");
-  if (fs.existsSync(binary)) {
-    try {
-      await fsp.access(binary, fs.constants.X_OK);
-      return binary;
-    } catch {}
-  }
-  const temp = `${binary}.download`;
-  logger.info("Downloading standalone yt-dlp...");
-  await downloadFile(ytDlpDownloadUrl(), temp);
-  await fsp.chmod(temp, 0o755);
-  await fsp.rename(temp, binary);
-  logger.info("Standalone yt-dlp ready.");
-  return binary;
+const binary = path.join(TOOLS_DIR, "yt-dlp");
+if (fs.existsSync(binary)) {
+try {
+await fsp.access(binary, fs.constants.X_OK);
+return binary;
+} catch {}
+}
+const temp = ${binary}.download;
+logger.info("Downloading standalone yt-dlp...");
+await downloadFile(ytDlpDownloadUrl(), temp);
+await fsp.chmod(temp, 0o755);
+await fsp.rename(temp, binary);
+logger.info("Standalone yt-dlp ready.");
+return binary;
 }
 
 /* =====================================================
@@ -1041,42 +1066,43 @@ URL HELPERS
 ===================================================== */
 
 function extractHttpUrl(text) {
-  if (!text) return null;
-  const match = text.match(/https?:\/\/[^\s]+/i);
-  if (!match) return null;
-  return match[0].replace(/[)>]+$/g, "");
+if (!text) return null;
+const match = text.match(/https?://[^\s]+/i);
+if (!match) return null;
+return match[0].replace(/[)>]+$/g, "");
 }
 
 function isSupportedDownloaderUrl(url) {
-  try {
-    const parsed = new URL(url);
-    const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
+try {
+const parsed = new URL(url);
+const host = parsed.hostname.toLowerCase().replace(/^www./, "");
 
-    return (
-      host.includes("tiktok.com") ||
-      host.includes("vm.tiktok.com") ||
-      host.includes("vt.tiktok.com") ||
-      host.includes("youtube.com") ||
-      host.includes("youtu.be") ||
-      host.includes("youtube-nocookie.com") ||
-      host.includes("facebook.com") ||
-      host.includes("fb.watch") ||
-      host.includes("fb.com") ||
-      host.includes("m.facebook.com")
-    );
-  } catch {
-    return false;
-  }
+return (  
+  host.includes("tiktok.com") ||  
+  host.includes("vm.tiktok.com") ||  
+  host.includes("vt.tiktok.com") ||  
+  host.includes("youtube.com") ||  
+  host.includes("youtu.be") ||  
+  host.includes("youtube-nocookie.com") ||  
+  host.includes("facebook.com") ||  
+  host.includes("fb.watch") ||  
+  host.includes("fb.com") ||  
+  host.includes("m.facebook.com")  
+);
+
+} catch {
+return false;
+}
 }
 
 function detectPlatform(url) {
-  try {
-    const host = new URL(url).hostname.toLowerCase();
-    if (host.includes("tiktok")) return "tiktok";
-    if (host.includes("youtube") || host.includes("youtu.be")) return "youtube";
-    if (host.includes("facebook") || host.includes("fb.")) return "facebook";
-  } catch {}
-  return "unknown";
+try {
+const host = new URL(url).hostname.toLowerCase();
+if (host.includes("tiktok")) return "tiktok";
+if (host.includes("youtube") || host.includes("youtu.be")) return "youtube";
+if (host.includes("facebook") || host.includes("fb.")) return "facebook";
+} catch {}
+return "unknown";
 }
 
 /* =====================================================
@@ -1084,132 +1110,132 @@ DOWNLOADER CORE
 ===================================================== */
 
 async function downloadSocialMedia(username, url) {
-  const ytDlp = await ensureYtDlp();
-  const jobId = crypto.randomBytes(8).toString("hex");
-  const outputTemplate = path.join(MEDIA_DIR, `${jobId}.%(ext)s`);
+const ytDlp = await ensureYtDlp();
+const jobId = crypto.randomBytes(8).toString("hex");
+const outputTemplate = path.join(MEDIA_DIR, ${jobId}.%(ext)s);
 
-  const platform = detectPlatform(url);
-  let formatArgs;
+const platform = detectPlatform(url);
+let formatArgs;
 
-  if (platform === "youtube" || platform === "facebook") {
-    formatArgs = [
-      "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-      "--merge-output-format", "mp4"
-    ];
-  } else {
-    formatArgs = ["-f", "best"];
-  }
+if (platform === "youtube" || platform === "facebook") {
+formatArgs = [
+"-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+"--merge-output-format", "mp4"
+];
+} else {
+formatArgs = ["-f", "best"];
+}
 
-  const args = [
-    "--no-playlist",
-    "--no-warnings",
-    "--no-progress",
-    "--restrict-filenames",
-    "--geo-bypass",
-    "--no-check-certificates",
-    "--max-filesize", "100M",
-    "--socket-timeout", "30",
-    ...formatArgs,
-    "-o", outputTemplate,
-    "--print", "after_move:filepath",
-    url
-  ];
+const args = [
+"--no-playlist",
+"--no-warnings",
+"--no-progress",
+"--restrict-filenames",
+"--geo-bypass",
+"--no-check-certificates",
+"--max-filesize", "100M",
+"--socket-timeout", "30",
+...formatArgs,
+"-o", outputTemplate,
+"--print", "after_move:filepath",
+url
+];
 
-  logger.info({ url, platform }, "Downloading media");
-  let stdout = "";
-  let stderr = "";
+logger.info({ url, platform }, "Downloading media");
+let stdout = "";
+let stderr = "";
 
-  try {
-    const result = await execFileAsync(ytDlp, args, {
-      timeout: 180000,
-      maxBuffer: 10 * 1024 * 1024
-    });
-    stdout = result.stdout || "";
-    stderr = result.stderr || "";
-  } catch (error) {
-    stdout = error.stdout || "";
-    stderr = error.stderr || "";
-    logger.error({ error: error.message, stderr }, "yt-dlp failed");
-    throw new Error(getDownloaderError(stderr || error.message));
-  }
+try {
+const result = await execFileAsync(ytDlp, args, {
+timeout: 180000,
+maxBuffer: 10 * 1024 * 1024
+});
+stdout = result.stdout || "";
+stderr = result.stderr || "";
+} catch (error) {
+stdout = error.stdout || "";
+stderr = error.stderr || "";
+logger.error({ error: error.message, stderr }, "yt-dlp failed");
+throw new Error(getDownloaderError(stderr || error.message));
+}
 
-  const printed = stdout.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
-  let outputFile = printed.length ? printed[printed.length - 1] : "";
+const printed = stdout.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+let outputFile = printed.length ? printed[printed.length - 1] : "";
 
-  if (!outputFile || !fs.existsSync(outputFile)) {
-    const candidates = await fsp.readdir(MEDIA_DIR);
-    const candidate = candidates
-      .filter(name => name.startsWith(`${jobId}.`))
-      .map(name => path.join(MEDIA_DIR, name))
-      .find(file => fs.existsSync(file));
-    outputFile = candidate || "";
-  }
+if (!outputFile || !fs.existsSync(outputFile)) {
+const candidates = await fsp.readdir(MEDIA_DIR);
+const candidate = candidates
+.filter(name => name.startsWith(${jobId}.))
+.map(name => path.join(MEDIA_DIR, name))
+.find(file => fs.existsSync(file));
+outputFile = candidate || "";
+}
 
-  if (!outputFile || !fs.existsSync(outputFile)) {
-    throw new Error("Downloader completed but no media file was created.");
-  }
-  return outputFile;
+if (!outputFile || !fs.existsSync(outputFile)) {
+throw new Error("Downloader completed but no media file was created.");
+}
+return outputFile;
 }
 
 function getDownloaderError(text) {
-  const value = String(text || "");
-  if (/private|login required|sign in/i.test(value)) return "This media is private or requires login.";
-  if (/unsupported URL/i.test(value)) return "This URL is not supported.";
-  if (/video unavailable|not available/i.test(value)) return "This video is unavailable.";
-  if (/max-filesize/i.test(value)) return "The media is too large.";
-  if (/nsig|signature/i.test(value)) return "YouTube signature error. Try again.";
-  return "Unable to download this media.";
+const value = String(text || "");
+if (/private|login required|sign in/i.test(value)) return "This media is private or requires login.";
+if (/unsupported URL/i.test(value)) return "This URL is not supported.";
+if (/video unavailable|not available/i.test(value)) return "This video is unavailable.";
+if (/max-filesize/i.test(value)) return "The media is too large.";
+if (/nsig|signature/i.test(value)) return "YouTube signature error. Try again.";
+return "Unable to download this media.";
 }
 
 async function sendDownloadedFile(sock, jid, file) {
-  const stat = await fsp.stat(file);
-  if (stat.size > 100 * 1024 * 1024) throw new Error("Downloaded file is too large.");
+const stat = await fsp.stat(file);
+if (stat.size > 100 * 1024 * 1024) throw new Error("Downloaded file is too large.");
 
-  const ext = path.extname(file).toLowerCase();
-  const data = await fsp.readFile(file);
+const ext = path.extname(file).toLowerCase();
+const data = await fsp.readFile(file);
 
-  const videoExts = [".mp4", ".mkv", ".mov", ".avi"];
-  const audioExts = [".mp3", ".m4a", ".aac", ".ogg", ".opus", ".wav"];
+const videoExts = [".mp4", ".mkv", ".mov", ".avi"];
+const audioExts = [".mp3", ".m4a", ".aac", ".ogg", ".opus", ".wav"];
 
-  if (videoExts.includes(ext)) {
-    await sock.sendMessage(jid, {
-      video: data,
-      mimetype: ext === ".mp4" ? "video/mp4" : "video/*",
-      caption: "✅ DIMUWA DOWNLOADER"
-    });
-    return;
-  }
-  if (audioExts.includes(ext)) {
-    await sock.sendMessage(jid, {
-      audio: data,
-      mimetype: ext === ".mp3" ? "audio/mpeg" : "audio/mp4"
-    });
-    return;
-  }
-  await sock.sendMessage(jid, {
-    document: data,
-    mimetype: "application/octet-stream",
-    fileName: path.basename(file)
-  });
+if (videoExts.includes(ext)) {
+await sock.sendMessage(jid, {
+video: data,
+mimetype: ext === ".mp4" ? "video/mp4" : "video/*",
+caption: "✅ DIMUWA DOWNLOADER"
+});
+return;
+}
+if (audioExts.includes(ext)) {
+await sock.sendMessage(jid, {
+audio: data,
+mimetype: ext === ".mp3" ? "audio/mpeg" : "audio/mp4"
+});
+return;
+}
+await sock.sendMessage(jid, {
+document: data,
+mimetype: "application/octet-stream",
+fileName: path.basename(file)
+});
 }
 
 async function handleDownloader(sock, username, msg, text) {
-  const url = extractHttpUrl(text);
-  if (!url || !isSupportedDownloaderUrl(url)) return false;
+const url = extractHttpUrl(text);
+if (!url || !isSupportedDownloaderUrl(url)) return false;
 
-  try {
-    await sock.sendMessage(msg.key.remoteJid, { text: "⏳ Downloading media...\nPlease wait." });
-    const file = await downloadSocialMedia(username, url);
-    await sendDownloadedFile(sock, msg.key.remoteJid, file);
-    incrementStat(username, "downloads");
-    await fsp.unlink(file).catch(() => {});
-  } catch (error) {
-    logger.error({ error: error.message, url }, "Downloader error");
-    await sock.sendMessage(msg.key.remoteJid, {
-      text: `❌ Download failed\n\n${error.message}`
-    });
-  }
-  return true;
+try {
+await sock.sendMessage(msg.key.remoteJid, { text: "⏳ Downloading media...\nPlease wait." });
+const file = await downloadSocialMedia(username, url);
+await sendDownloadedFile(sock, msg.key.remoteJid, file);
+incrementStat(username, "downloads");
+await fsp.unlink(file).catch(() => {});
+} catch (error) {
+logger.error({ error: error.message, url }, "Downloader error");
+await sock.sendMessage(msg.key.remoteJid, {
+text: ❌ Download failed\n\n${error.message}
+});
+}
+return true;
 }
 
 /* =====================================================
@@ -1217,48 +1243,49 @@ ANTI-DELETE HANDLER
 ===================================================== */
 
 async function handleDeletedMessages(username, sock, deletedKeys) {
-  const settings = getSettings(username);
-  if (settings.antiDelete !== "ON" || !Array.isArray(deletedKeys)) return;
+const settings = getSettings(username);
+if (settings.antiDelete !== "ON" || !Array.isArray(deletedKeys)) return;
 
-  for (const key of deletedKeys) {
-    try {
-      const cached = getCachedMessage(key);
-      if (!cached) continue;
+for (const key of deletedKeys) {
+try {
+const cached = getCachedMessage(key);
+if (!cached) continue;
 
-      const target =
-        settings.antiDelTarget === "PRIVATE"
-          ? getOwnerJid(sock)
-          : key.remoteJid;
+const target =  
+    settings.antiDelTarget === "PRIVATE"  
+      ? getOwnerJid(sock)  
+      : key.remoteJid;  
 
-      if (!target) continue;
+  if (!target) continue;  
 
-      const text = getMessageText(cached);
-      const media = getMediaInfo(cached.message);
+  const text = getMessageText(cached);  
+  const media = getMediaInfo(cached.message);  
 
-      if (media) {
-        try {
-          const downloaded = await downloadWhatsAppMedia(sock, cached);
-          await sendWhatsAppMedia(sock, target, downloaded);
-        } catch {
-          await sock.sendMessage(target, {
-            text: `🗑️ DELETED MEDIA\n\nType: ${media.mediaType}`
-          });
-        }
-      } else if (text) {
-        await sock.sendMessage(target, {
-          text: `🗑️ DELETED MESSAGE\n\n${text}`
-        });
-      } else {
-        try {
-          await sock.sendMessage(target, { forward: cached });
-        } catch {
-          await sock.sendMessage(target, { text: "🗑️ A message was deleted." });
-        }
-      }
-    } catch (error) {
-      logger.error({ error: error.message }, "Anti-delete error");
-    }
-  }
+  if (media) {  
+    try {  
+      const downloaded = await downloadWhatsAppMedia(sock, cached);  
+      await sendWhatsAppMedia(sock, target, downloaded);  
+    } catch {  
+      await sock.sendMessage(target, {  
+        text: `🗑️ DELETED MEDIA\n\nType: ${media.mediaType}`  
+      });  
+    }  
+  } else if (text) {  
+    await sock.sendMessage(target, {  
+      text: `🗑️ DELETED MESSAGE\n\n${text}`  
+    });  
+  } else {  
+    try {  
+      await sock.sendMessage(target, { forward: cached });  
+    } catch {  
+      await sock.sendMessage(target, { text: "🗑️ A message was deleted." });  
+    }  
+  }  
+} catch (error) {  
+  logger.error({ error: error.message }, "Anti-delete error");  
+}
+
+}
 }
 
 /* =====================================================
@@ -1266,52 +1293,52 @@ STATUS HANDLER
 ===================================================== */
 
 async function handleStatus(username, sock, msg) {
-  if (msg.key?.remoteJid !== "status@broadcast") return;
+if (msg.key?.remoteJid !== "status@broadcast") return;
 
-  const settings = getSettings(username);
-  const participant = msg.key?.participant || msg.participant;
-  if (!participant) return;
+const settings = getSettings(username);
+const participant = msg.key?.participant || msg.participant;
+if (!participant) return;
 
-  if (settings.statusRead === "ON") {
-    await sock.readMessages([{
-      remoteJid: "status@broadcast",
-      id: msg.key.id,
-      participant
-    }]).catch((error) => {
-      logger.error({ error: error.message }, "Status read error");
-    });
-  }
+if (settings.statusRead === "ON") {
+await sock.readMessages([{
+remoteJid: "status@broadcast",
+id: msg.key.id,
+participant
+}]).catch((error) => {
+logger.error({ error: error.message }, "Status read error");
+});
+}
 
-  if (settings.statusReact === "OFF") return;
+if (settings.statusReact === "OFF") return;
 
-  let emoji = "💚";
-  if (settings.statusReact === "RANDOM") {
-    emoji = statusReactList[Math.floor(Math.random() * statusReactList.length)];
-  }
+let emoji = "💚";
+if (settings.statusReact === "RANDOM") {
+emoji = statusReactList[Math.floor(Math.random() * statusReactList.length)];
+}
 
-  try {
-    const owner = getOwnerJid(sock);
-    await sock.sendMessage(
-      "status@broadcast",
-      {
-        react: {
-          text: emoji,
-          key: {
-            remoteJid: "status@broadcast",
-            id: msg.key.id,
-            participant: participant,
-            fromMe: false
-          }
-        }
-      },
-      {
-        statusJidList: [participant, owner].filter(Boolean)
-      }
-    );
-    logger.info({ username, emoji, participant: jidNumber(participant) }, "Status reacted");
-  } catch (error) {
-    logger.error({ error: error.message }, "Status reaction error");
-  }
+try {
+const owner = getOwnerJid(sock);
+await sock.sendMessage(
+"status@broadcast",
+{
+react: {
+text: emoji,
+key: {
+remoteJid: "status@broadcast",
+id: msg.key.id,
+participant: participant,
+fromMe: false
+}
+}
+},
+{
+statusJidList: [participant, owner].filter(Boolean)
+}
+);
+logger.info({ username, emoji, participant: jidNumber(participant) }, "Status reacted");
+} catch (error) {
+logger.error({ error: error.message }, "Status reaction error");
+}
 }
 
 /* =====================================================
@@ -1319,58 +1346,59 @@ async function handleStatus(username, sock, msg) {
 ===================================================== */
 
 async function handleProfilePicture(sock, msg) {
-  const jid = msg.key.remoteJid;
+const jid = msg.key.remoteJid;
 
-  try {
-    let targetJid = null;
-    let targetName = "";
+try {
+let targetJid = null;
+let targetName = "";
 
-    const quoted = getQuotedMessage(msg);
+const quoted = getQuotedMessage(msg);  
 
-    if (quoted) {
-      targetJid = quoted.key?.participant || quoted.key?.remoteJid;
-      targetName = "replied user";
-    } else if (isGroupJid(jid)) {
-      targetJid = jid;
-      targetName = "group";
-    } else {
-      targetJid = jid;
-      targetName = "user";
-    }
+if (quoted) {  
+  targetJid = quoted.key?.participant || quoted.key?.remoteJid;  
+  targetName = "replied user";  
+} else if (isGroupJid(jid)) {  
+  targetJid = jid;  
+  targetName = "group";  
+} else {  
+  targetJid = jid;  
+  targetName = "user";  
+}  
 
-    if (!targetJid) {
-      await sock.sendMessage(jid, {
-        text: "❌ Could not identify target.\n\nUsage:\n• Reply to a message with .dp\n• Send .dp in a group for group icon"
-      }, { quoted: msg });
-      return;
-    }
+if (!targetJid) {  
+  await sock.sendMessage(jid, {  
+    text: "❌ Could not identify target.\n\nUsage:\n• Reply to a message with .dp\n• Send .dp in a group for group icon"  
+  }, { quoted: msg });  
+  return;  
+}  
 
-    let ppUrl = null;
-    try {
-      ppUrl = await sock.profilePictureUrl(targetJid, "image");
-    } catch {
-      ppUrl = null;
-    }
+let ppUrl = null;  
+try {  
+  ppUrl = await sock.profilePictureUrl(targetJid, "image");  
+} catch {  
+  ppUrl = null;  
+}  
 
-    if (!ppUrl) {
-      await sock.sendMessage(jid, {
-        text: `❌ No profile picture found for this ${targetName}.`
-      }, { quoted: msg });
-      return;
-    }
+if (!ppUrl) {  
+  await sock.sendMessage(jid, {  
+    text: `❌ No profile picture found for this ${targetName}.`  
+  }, { quoted: msg });  
+  return;  
+}  
 
-    await sock.sendMessage(jid, {
-      image: { url: ppUrl },
-      caption: `📸 *Profile Picture*\n\n👤 ${targetName === "group" ? "Group" : "User"}: ${jidNumber(targetJid) || targetJid}\n\n🤖 DIMUWA MINI BOT`
-    }, { quoted: msg });
+await sock.sendMessage(jid, {  
+  image: { url: ppUrl },  
+  caption: `📸 *Profile Picture*\n\n👤 ${targetName === "group" ? "Group" : "User"}: ${jidNumber(targetJid) || targetJid}\n\n🤖 DIMUWA MINI BOT`  
+}, { quoted: msg });  
 
-    logger.info({ targetJid }, ".dp success");
-  } catch (error) {
-    logger.error({ error: error.message }, ".dp error");
-    await sock.sendMessage(jid, {
-      text: `❌ .dp failed\n\n${error.message}`
-    }, { quoted: msg });
-  }
+logger.info({ targetJid }, ".dp success");
+
+} catch (error) {
+logger.error({ error: error.message }, ".dp error");
+await sock.sendMessage(jid, {
+text: ❌ .dp failed\n\n${error.message}
+}, { quoted: msg });
+}
 }
 
 /* =====================================================
@@ -1378,53 +1406,54 @@ async function handleProfilePicture(sock, msg) {
 ===================================================== */
 
 async function handleBlock(sock, msg, shouldBlock) {
-  const jid = msg.key.remoteJid;
+const jid = msg.key.remoteJid;
 
-  try {
-    let targetJid = null;
+try {
+let targetJid = null;
 
-    const quoted = getQuotedMessage(msg);
+const quoted = getQuotedMessage(msg);  
 
-    if (quoted) {
-      targetJid = quoted.key?.participant || quoted.key?.remoteJid;
-    } else if (!isGroupJid(jid)) {
-      targetJid = jid;
-    }
+if (quoted) {  
+  targetJid = quoted.key?.participant || quoted.key?.remoteJid;  
+} else if (!isGroupJid(jid)) {  
+  targetJid = jid;  
+}  
 
-    if (!targetJid) {
-      await sock.sendMessage(jid, {
-        text: `❌ Could not identify target.\n\nUsage:\n• Reply to a message with .${shouldBlock ? "block" : "unblock"}\n• Send .${shouldBlock ? "block" : "unblock"} in a private chat`
-      }, { quoted: msg });
-      return;
-    }
+if (!targetJid) {  
+  await sock.sendMessage(jid, {  
+    text: `❌ Could not identify target.\n\nUsage:\n• Reply to a message with .${shouldBlock ? "block" : "unblock"}\n• Send .${shouldBlock ? "block" : "unblock"} in a private chat`  
+  }, { quoted: msg });  
+  return;  
+}  
 
-    const owner = getOwnerJid(sock);
-    if (owner && jidNumber(targetJid) === jidNumber(owner)) {
-      await sock.sendMessage(jid, {
-        text: "❌ You cannot block the bot owner."
-      }, { quoted: msg });
-      return;
-    }
+const owner = getOwnerJid(sock);  
+if (owner && jidNumber(targetJid) === jidNumber(owner)) {  
+  await sock.sendMessage(jid, {  
+    text: "❌ You cannot block the bot owner."  
+  }, { quoted: msg });  
+  return;  
+}  
 
-    if (shouldBlock) {
-      await sock.updateBlockStatus(targetJid, "block");
-      await sock.sendMessage(jid, {
-        text: `🚫 *User Blocked*\n\n📱 ${jidNumber(targetJid)}\n\n🤖 DIMUWA MINI BOT`
-      }, { quoted: msg });
-      logger.info({ targetJid }, "User blocked");
-    } else {
-      await sock.updateBlockStatus(targetJid, "unblock");
-      await sock.sendMessage(jid, {
-        text: `✅ *User Unblocked*\n\n📱 ${jidNumber(targetJid)}\n\n🤖 DIMUWA MINI BOT`
-      }, { quoted: msg });
-      logger.info({ targetJid }, "User unblocked");
-    }
-  } catch (error) {
-    logger.error({ error: error.message }, "Block/Unblock error");
-    await sock.sendMessage(jid, {
-      text: `❌ ${shouldBlock ? "Block" : "Unblock"} failed\n\n${error.message}`
-    }, { quoted: msg });
-  }
+if (shouldBlock) {  
+  await sock.updateBlockStatus(targetJid, "block");  
+  await sock.sendMessage(jid, {  
+    text: `🚫 *User Blocked*\n\n📱 ${jidNumber(targetJid)}\n\n🤖 DIMUWA MINI BOT`  
+  }, { quoted: msg });  
+  logger.info({ targetJid }, "User blocked");  
+} else {  
+  await sock.updateBlockStatus(targetJid, "unblock");  
+  await sock.sendMessage(jid, {  
+    text: `✅ *User Unblocked*\n\n📱 ${jidNumber(targetJid)}\n\n🤖 DIMUWA MINI BOT`  
+  }, { quoted: msg });  
+  logger.info({ targetJid }, "User unblocked");  
+}
+
+} catch (error) {
+logger.error({ error: error.message }, "Block/Unblock error");
+await sock.sendMessage(jid, {
+text: ❌ ${shouldBlock ? "Block" : "Unblock"} failed\n\n${error.message}
+}, { quoted: msg });
+}
 }
 
 /* =====================================================
@@ -1432,18 +1461,18 @@ PRESENCE HELPERS
 ===================================================== */
 
 async function applyPresence(username, sock) {
-  const settings = getSettings(username);
-  if (settings.alwaysOnline === "ON") {
-    await sock.sendPresenceUpdate("available").catch(() => {});
-  } else {
-    await sock.sendPresenceUpdate("unavailable").catch(() => {});
-  }
+const settings = getSettings(username);
+if (settings.alwaysOnline === "ON") {
+await sock.sendPresenceUpdate("available").catch(() => {});
+} else {
+await sock.sendPresenceUpdate("unavailable").catch(() => {});
+}
 }
 
 async function startComposing(username, sock, jid) {
-  const settings = getSettings(username);
-  if (settings.composing !== "ON") return;
-  await sock.sendPresenceUpdate("composing", jid).catch(() => {});
+const settings = getSettings(username);
+if (settings.composing !== "ON") return;
+await sock.sendPresenceUpdate("composing", jid).catch(() => {});
 }
 
 /* =====================================================
@@ -1451,140 +1480,141 @@ MAIN MESSAGE HANDLER
 ===================================================== */
 
 async function handleMessage(username, sock, msg) {
-  if (!msg || !msg.message || !msg.key) return;
+if (!msg || !msg.message || !msg.key) return;
 
-  if (isStatusJid(msg.key.remoteJid)) {
-    await handleStatus(username, sock, msg);
-    return;
-  }
+if (isStatusJid(msg.key.remoteJid)) {
+await handleStatus(username, sock, msg);
+return;
+}
 
-  if (msg.key.remoteJid === "broadcast") return;
+if (msg.key.remoteJid === "broadcast") return;
 
-  if (msg.message.protocolMessage) {
-    const protoType = msg.message.protocolMessage.type;
+if (msg.message.protocolMessage) {
+const protoType = msg.message.protocolMessage.type;
 
-    if (protoType === 0 || protoType === "REVOKE") {
-      const deletedKey = msg.message.protocolMessage.key;
-      if (deletedKey) {
-        await handleDeletedMessages(username, sock, [deletedKey]);
-      }
-    }
-    return;
-  }
+if (protoType === 0 || protoType === "REVOKE") {  
+  const deletedKey = msg.message.protocolMessage.key;  
+  if (deletedKey) {  
+    await handleDeletedMessages(username, sock, [deletedKey]);  
+  }  
+}  
+return;
 
-  cacheMessage(msg);
-  incrementStat(username, "messages");
+}
 
-  const settings = getSettings(username);
+cacheMessage(msg);
+incrementStat(username, "messages");
 
-  if (settings.autoRead === "ON" && !msg.key.fromMe) {
-    await sock.readMessages([msg.key]).catch(() => {});
-  }
+const settings = getSettings(username);
 
-  await handleAutoSaveViewOnce(username, sock, msg);
+if (settings.autoRead === "ON" && !msg.key.fromMe) {
+await sock.readMessages([msg.key]).catch(() => {});
+}
 
-  const text = getMessageText(msg).trim();
-  if (!text) return;
+await handleAutoSaveViewOnce(username, sock, msg);
 
-  const settingCode = text.match(/^\s*(\d{1,2}\.\d)\s*$/);
-  if (settingCode) {
-    await processSettingsCode(sock, username, msg, settingCode[1]);
-    return;
-  }
+const text = getMessageText(msg).trim();
+if (!text) return;
 
-  if (msg.message?.extendedTextMessage?.contextInfo && /^[1-6]$/.test(text)) {
-    await handleMenuNumber(sock, username, msg.key.remoteJid, text, msg);
-    return;
-  }
+const settingCode = text.match(/^\s*(\d{1,2}.\d)\s*$/);
+if (settingCode) {
+await processSettingsCode(sock, username, msg, settingCode[1]);
+return;
+}
 
-  if (settings.botPower !== "ON") return;
-  if (!canProcessMessage(sock, username, msg)) return;
+if (msg.message?.extendedTextMessage?.contextInfo && /^[1-6]$/.test(text)) {
+await handleMenuNumber(sock, username, msg.key.remoteJid, text, msg);
+return;
+}
 
-  await startComposing(username, sock, msg.key.remoteJid);
+if (settings.botPower !== "ON") return;
+if (!canProcessMessage(sock, username, msg)) return;
 
-  const command = text.split(/\s+/)[0].toLowerCase();
-  if (command.startsWith(".")) incrementStat(username, "commands");
+await startComposing(username, sock, msg.key.remoteJid);
 
-  if (command === ".menu" || command === ".help" || text === "menu" || text === "help") {
-    await sendMenu(sock, username, msg.key.remoteJid, msg);
-    return;
-  }
+const command = text.split(/\s+/)[0].toLowerCase();
+if (command.startsWith(".")) incrementStat(username, "commands");
 
-  if (command === ".ping") {
-    await handlePing(sock, msg.key.remoteJid, msg);
-    return;
-  }
+if (command === ".menu" || command === ".help" || text === "menu" || text === "help") {
+await sendMenu(sock, username, msg.key.remoteJid, msg);
+return;
+}
 
-  if (command === ".tagall") {
-    await handleTagAll(sock, msg.key.remoteJid, msg);
-    return;
-  }
+if (command === ".ping") {
+await handlePing(sock, msg.key.remoteJid, msg);
+return;
+}
 
-  if ([".dice", ".random", ".love"].includes(command)) {
-    await handleFunCommand(sock, msg.key.remoteJid, command, msg);
-    return;
-  }
+if (command === ".tagall") {
+await handleTagAll(sock, msg.key.remoteJid, msg);
+return;
+}
 
-  if (command === ".alive") {
-    await sock.sendMessage(msg.key.remoteJid, { text: aliveText(username) });
-    return;
-  }
+if ([".dice", ".random", ".love"].includes(command)) {
+await handleFunCommand(sock, msg.key.remoteJid, command, msg);
+return;
+}
 
-  if (command === ".status") {
-    await sock.sendMessage(msg.key.remoteJid, { text: statusText(username, sock) });
-    return;
-  }
+if (command === ".alive") {
+await sock.sendMessage(msg.key.remoteJid, { text: aliveText(username) });
+return;
+}
 
-  if (command === ".settings") {
-    if (isOwner(sock, msg)) {
-      await sock.sendMessage(msg.key.remoteJid, { text: settingsMenu(username) });
-    } else {
-      await sock.sendMessage(msg.key.remoteJid, {
-        text: "❌ .settings is available only for bot owner."
-      });
-    }
-    return;
-  }
+if (command === ".status") {
+await sock.sendMessage(msg.key.remoteJid, { text: statusText(username, sock) });
+return;
+}
 
-  if (command === ".vv" || command === ".viewonce") {
-    await handleViewOnce(sock, username, msg);
-    return;
-  }
+if (command === ".settings") {
+if (isOwner(sock, msg)) {
+await sock.sendMessage(msg.key.remoteJid, { text: settingsMenu(username) });
+} else {
+await sock.sendMessage(msg.key.remoteJid, {
+text: "❌ .settings is available only for bot owner."
+});
+}
+return;
+}
 
-  if (command === ".save") {
-    await handleSave(sock, username, msg);
-    return;
-  }
+if (command === ".vv" || command === ".viewonce") {
+await handleViewOnce(sock, username, msg);
+return;
+}
 
-  if (command === ".dp") {
-    await handleProfilePicture(sock, msg);
-    return;
-  }
+if (command === ".save") {
+await handleSave(sock, username, msg);
+return;
+}
 
-  if (command === ".block") {
-    if (!isOwner(sock, msg)) {
-      await sock.sendMessage(msg.key.remoteJid, { text: "❌ Owner only command." });
-      return;
-    }
-    await handleBlock(sock, msg, true);
-    return;
-  }
+if (command === ".dp") {
+await handleProfilePicture(sock, msg);
+return;
+}
 
-  if (command === ".unblock") {
-    if (!isOwner(sock, msg)) {
-      await sock.sendMessage(msg.key.remoteJid, { text: "❌ Owner only command." });
-      return;
-    }
-    await handleBlock(sock, msg, false);
-    return;
-  }
+if (command === ".block") {
+if (!isOwner(sock, msg)) {
+await sock.sendMessage(msg.key.remoteJid, { text: "❌ Owner only command." });
+return;
+}
+await handleBlock(sock, msg, true);
+return;
+}
 
-  if (extractHttpUrl(text)) {
-    const handled = await handleDownloader(sock, username, msg, text);
-    if (handled) return;
-  }
+if (command === ".unblock") {
+if (!isOwner(sock, msg)) {
+await sock.sendMessage(msg.key.remoteJid, { text: "❌ Owner only command." });
+return;
+}
+await handleBlock(sock, msg, false);
+return;
+}
 
-  await sock.sendPresenceUpdate("paused", msg.key.remoteJid).catch(() => {});
+if (extractHttpUrl(text)) {
+const handled = await handleDownloader(sock, username, msg, text);
+if (handled) return;
+}
+
+await sock.sendPresenceUpdate("paused", msg.key.remoteJid).catch(() => {});
 }
 
 /* =====================================================
@@ -1592,178 +1622,205 @@ BOT CREATION
 ===================================================== */
 
 async function startBot(username, options = {}) {
-  const clean = cleanUsername(username);
-  if (bots.has(clean)) return bots.get(clean);
-  if (startingBots.has(clean)) return startingBots.get(clean);
+const clean = cleanUsername(username);
+if (bots.has(clean)) return bots.get(clean);
+if (startingBots.has(clean)) return startingBots.get(clean);
 
-  const startPromise = (async () => {
-    const authPath = sessionPath(clean);
-    fs.mkdirSync(authPath, { recursive: true });
+const startPromise = (async () => {
+const authPath = sessionPath(clean);
+fs.mkdirSync(authPath, { recursive: true });
 
-    const { state, saveCreds } = await useMultiFileAuthState(authPath);
+const { state, saveCreds } = await useMultiFileAuthState(authPath);  
+const waWebVersion = await fetchLatestWaWebVersion();  
+logger.info({ waWebVersion }, "Using live WhatsApp Web version");  
 
-    const sock = makeWASocket({
-      auth: state,
-      browser: Browsers.macOS("Desktop"),
-      printQRInTerminal: false,
-      logger,
-      markOnlineOnConnect: true,
-      syncFullHistory: true,
-      connectTimeoutMs: 60000,
-      defaultQueryTimeoutMs: 60000,
-      keepAliveIntervalMs: 25000,
-      retryRequestDelayMs: 2000,
-      getMessage: async (key) => {
-        const cached = getCachedMessage(key);
-        if (cached?.message) return cached.message;
-        return proto.Message.fromObject({});
-      }
-    });
+const sock = makeWASocket({  
+  version: waWebVersion,  
+  auth: state,  
+  browser: Browsers.macOS("Desktop"),  
+  printQRInTerminal: false,  
+  logger,  
+  markOnlineOnConnect: true,  
+  syncFullHistory: true,  
+  connectTimeoutMs: 60000,  
+  defaultQueryTimeoutMs: 60000,  
+  keepAliveIntervalMs: 25000,  
+  retryRequestDelayMs: 2000,  
+  getMessage: async (key) => {  
+    const cached = getCachedMessage(key);  
+    if (cached?.message) return cached.message;  
+    return proto.Message.fromObject({});  
+  }  
+});  
 
-    sock.__dimuwaUsername = clean;
-    bots.set(clean, sock);
-    getSettings(clean);
-    getStats(clean);
+sock.__dimuwaUsername = clean;  
+bots.set(clean, sock);  
+getSettings(clean);  
+getStats(clean);  
 
-    sock.ev.on("creds.update", saveCreds);
+sock.ev.on("creds.update", saveCreds);  
 
-    sock.ev.on("connection.update", async (update) => {
-      const { connection, lastDisconnect, qr } = update;
+sock.ev.on("connection.update", async (update) => {  
+  const { connection, lastDisconnect, qr } = update;  
 
-      if (qr) {
-        try {
-          const qrDataUrl = await QRCode.toDataURL(qr, { margin: 2, width: 500 });
-          qrStore.set(clean, qrDataUrl);
-          logger.info({ username: clean }, "QR generated");
-        } catch (error) {
-          logger.error({ error: error.message }, "QR generation error");
-        }
-      }
+  if (qr) {  
+    try {  
+      const qrDataUrl = await QRCode.toDataURL(qr, { margin: 2, width: 500 });  
+      qrStore.set(clean, qrDataUrl);  
+      logger.info({ username: clean }, "QR generated");  
+    } catch (error) {  
+      logger.error({ error: error.message }, "QR generation error");  
+    }  
+  }  
 
-      if (connection === "open") {
-        qrStore.delete(clean);
-        pairingStore.delete(clean);
+  if (connection === "open") {  
+    qrStore.delete(clean);  
+    pairingStore.delete(clean);  
 
-        followDimuwaChannel(sock).catch(() => {});
-        sendDimuwaWelcome(sock, clean).catch(() => {});
+    followDimuwaChannel(sock).catch(() => {});  
+    sendDimuwaWelcome(sock, clean).catch(() => {});  
 
-        const stats = getStats(clean);
-        stats.connectedAt = Date.now();
-        stats.lastSeen = Date.now();
-        saveStats();
+    const stats = getStats(clean);  
+    stats.connectedAt = Date.now();  
+    stats.lastSeen = Date.now();  
+    saveStats();  
 
-        logger.info({ username: clean, user: sock.user?.id }, "DIMUWA bot connected");
-        await applyPresence(clean, sock);
+    logger.info({ username: clean, user: sock.user?.id }, "DIMUWA bot connected");  
+    await applyPresence(clean, sock);  
 
-        if (getSettings(clean).alwaysOnline === "ON") {
-          const oldTimer = sock.__presenceTimer;
-          if (oldTimer) clearInterval(oldTimer);
-          sock.__presenceTimer = setInterval(async () => {
-            if (isConnected(sock) && getSettings(clean).alwaysOnline === "ON") {
-              await sock.sendPresenceUpdate("available").catch(() => {});
-            }
-          }, 20000);
-        }
-        return;
-      }
+    if (getSettings(clean).alwaysOnline === "ON") {  
+      const oldTimer = sock.__presenceTimer;  
+      if (oldTimer) clearInterval(oldTimer);  
+      sock.__presenceTimer = setInterval(async () => {  
+        if (isConnected(sock) && getSettings(clean).alwaysOnline === "ON") {  
+          await sock.sendPresenceUpdate("available").catch(() => {});  
+        }  
+      }, 20000);  
+    }  
+    return;  
+  }  
 
-      if (connection === "close") {
-        if (sock.__presenceTimer) {
-          clearInterval(sock.__presenceTimer);
-          sock.__presenceTimer = null;
-        }
+  if (connection === "close") {  
+    if (sock.__presenceTimer) {  
+      clearInterval(sock.__presenceTimer);  
+      sock.__presenceTimer = null;  
+    }  
 
-        const code = lastDisconnect?.error?.output?.statusCode;
-        logger.warn({ username: clean, code }, "WhatsApp connection closed");
-        bots.delete(clean);
+    const code = lastDisconnect?.error?.output?.statusCode;  
+    logger.warn({ username: clean, code }, "WhatsApp connection closed");  
+    bots.delete(clean);  
 
-        if (code === DisconnectReason.loggedOut) {
-          qrStore.delete(clean);
-          pairingStore.delete(clean);
-          logger.warn({ username: clean }, "Session logged out");
-          return;
-        }
+    if (code === DisconnectReason.loggedOut) {  
+      qrStore.delete(clean);  
+      pairingStore.delete(clean);  
+      logger.warn({ username: clean }, "Session logged out");  
+      return;  
+    }  
 
-        if (code === 440) {
-          logger.warn({ username: clean }, "Connection replaced");
-          return;
-        }
+    if (code === 440) {  
+      logger.warn({ username: clean }, "Connection replaced");  
+      return;  
+    }  
 
-        const reconnectDelay = code === 515 ? 1000 : code === 408 ? 5000 : 5000;
-        setTimeout(() => {
-          startBot(clean).catch(error => {
-            logger.error({ error: error.message, username: clean }, "Reconnect failed");
-          });
-        }, reconnectDelay);
-      }
-    });
+    const reconnectDelay = code === 515 ? 1000 : code === 408 ? 5000 : 5000;  
+    setTimeout(() => {  
+      startBot(clean).catch(error => {  
+        logger.error({ error: error.message, username: clean }, "Reconnect failed");  
+      });  
+    }, reconnectDelay);  
+  }  
+});  
 
-    sock.ev.on("messages.upsert", async (event) => {
-      const messages = event?.messages || [];
-      for (const msg of messages) {
-        try {
-          await handleMessage(clean, sock, msg);
-        } catch (error) {
-          logger.error({
-            username: clean,
-            error: error.message,
-            stack: error.stack
-          }, "Message handler error");
-        }
-      }
-    });
+sock.ev.on("messages.upsert", async (event) => {  
+  const messages = event?.messages || [];  
+  for (const msg of messages) {  
+    try {  
+      await handleMessage(clean, sock, msg);  
+    } catch (error) {  
+      logger.error({  
+        username: clean,  
+        error: error.message,  
+        stack: error.stack  
+      }, "Message handler error");  
+    }  
+  }  
+});  
 
-    sock.ev.on("messages.delete", async (event) => {
-      try {
-        let keys = [];
-        if (Array.isArray(event)) keys = event;
-        else if (Array.isArray(event?.keys)) keys = event.keys;
-        else if (event?.key) keys = [event.key];
-        await handleDeletedMessages(clean, sock, keys);
-      } catch (error) {
-        logger.error({ error: error.message }, "Delete event error");
-      }
-    });
+sock.ev.on("messages.delete", async (event) => {  
+  try {  
+    let keys = [];  
+    if (Array.isArray(event)) keys = event;  
+    else if (Array.isArray(event?.keys)) keys = event.keys;  
+    else if (event?.key) keys = [event.key];  
+    await handleDeletedMessages(clean, sock, keys);  
+  } catch (error) {  
+    logger.error({ error: error.message }, "Delete event error");  
+  }  
+});  
 
-    return sock;
-  })();
+return sock;
 
-  startingBots.set(clean, startPromise);
-  try {
-    return await startPromise;
-  } finally {
-    startingBots.delete(clean);
-  }
+})();
+
+startingBots.set(clean, startPromise);
+try {
+return await startPromise;
+} finally {
+startingBots.delete(clean);
+}
 }
 
 /* =====================================================
 PAIRING CODE
 ===================================================== */
 
+async function waitForSocketReady(sock, timeout = 20000) {
+const started = Date.now();
+while (Date.now() - started < timeout) {
+if (isConnected(sock)) return true;
+// Baileys' pairing-code request needs an active websocket connection.
+if (sock?.ws?.readyState === 1) return true;
+if (!sock || sock.ws?.readyState === 3) break;
+await new Promise(resolve => setTimeout(resolve, 250));
+}
+return !!(sock?.ws?.readyState === 1 || isConnected(sock));
+}
+
 async function getPairingCode(username, phone) {
-  const clean = cleanUsername(username);
-  const number = normalizePhone(phone);
-  if (!number || number.length < 8) {
-    throw new Error("Valid WhatsApp phone number required. Use country code without +.");
-  }
+const clean = cleanUsername(username);
+const number = normalizePhone(phone);
+if (!number || number.length < 8 || number.length > 15) {
+throw new Error("Enter a valid WhatsApp number with country code, digits only (no + sign). ");
+}
 
-  let sock = bots.get(clean);
-  if (!sock) sock = await startBot(clean, { pairing: true });
-  if (isConnected(sock)) {
-    return { connected: true, message: "This bot is already connected." };
-  }
+let sock = bots.get(clean);
+if (!sock) sock = await startBot(clean, { pairing: true });
+if (isConnected(sock)) {
+return { connected: true, message: "This bot is already connected." };
+}
 
-  pairingStore.set(clean, number);
-  await new Promise(resolve => setTimeout(resolve, 1500));
-  if (isConnected(sock)) {
-    return { connected: true, message: "This bot is already connected." };
-  }
+pairingStore.set(clean, number);
+const ready = await waitForSocketReady(sock, 20000);
+if (isConnected(sock)) {
+return { connected: true, message: "This bot is already connected." };
+}
+if (!ready) {
+throw new Error("WhatsApp connection is not ready yet. Wait 5 seconds and try again.");
+}
 
-  const code = await sock.requestPairingCode(number);
-  const formatted = String(code).replace(/(.{4})/g, "$1-").replace(/-$/, "");
-  pairingStore.set(clean, number);
-
-  return { connected: false, code: formatted, phone: number };
+// Avoid simultaneous requests for the same bot/session.
+if (sock.__pairingRequest) return await sock.__pairingRequest;
+sock.__pairingRequest = (async () => {
+const code = await sock.requestPairingCode(number);
+const formatted = String(code).replace(/(.{4})/g, "$1-").replace(/-$/, "");
+pairingStore.set(clean, number);
+return { connected: false, code: formatted, phone: number };
+})();
+try {
+return await sock.__pairingRequest;
+} finally {
+sock.__pairingRequest = null;
+}
 }
 
 /* =====================================================
@@ -1771,16 +1828,16 @@ QR WAIT
 ===================================================== */
 
 async function waitForQR(username, timeout = 15000) {
-  const clean = cleanUsername(username);
-  const started = Date.now();
-  while (Date.now() - started < timeout) {
-    const qr = qrStore.get(clean);
-    if (qr) return qr;
-    const sock = bots.get(clean);
-    if (sock && isConnected(sock)) return null;
-    await new Promise(resolve => setTimeout(resolve, 300));
-  }
-  return qrStore.get(clean) || null;
+const clean = cleanUsername(username);
+const started = Date.now();
+while (Date.now() - started < timeout) {
+const qr = qrStore.get(clean);
+if (qr) return qr;
+const sock = bots.get(clean);
+if (sock && isConnected(sock)) return null;
+await new Promise(resolve => setTimeout(resolve, 300));
+}
+return qrStore.get(clean) || null;
 }
 
 /* =====================================================
@@ -1788,32 +1845,32 @@ CHANNEL FOLLOW + WELCOME
 ===================================================== */
 
 async function followDimuwaChannel(sock) {
-  try {
-    if (typeof sock.newsletterMetadata !== "function" || typeof sock.newsletterFollow !== "function") {
-      logger.warn("Newsletter/channel API is not available in this Baileys build.");
-      return false;
-    }
-    const metadata = await sock.newsletterMetadata("invite", DIMUWA_CHANNEL_INVITE);
-    const channelJid = metadata?.id || metadata?.jid || metadata?.newsletterJid;
-    if (!channelJid) {
-      logger.warn("Could not resolve DIMUWA channel JID.");
-      return false;
-    }
-    await sock.newsletterFollow(channelJid);
-    logger.info({ channelJid }, "DIMUWA channel followed.");
-    return true;
-  } catch (error) {
-    logger.error({ error: error.message }, "DIMUWA channel follow failed.");
-    return false;
-  }
+try {
+if (typeof sock.newsletterMetadata !== "function" || typeof sock.newsletterFollow !== "function") {
+logger.warn("Newsletter/channel API is not available in this Baileys build.");
+return false;
+}
+const metadata = await sock.newsletterMetadata("invite", DIMUWA_CHANNEL_INVITE);
+const channelJid = metadata?.id || metadata?.jid || metadata?.newsletterJid;
+if (!channelJid) {
+logger.warn("Could not resolve DIMUWA channel JID.");
+return false;
+}
+await sock.newsletterFollow(channelJid);
+logger.info({ channelJid }, "DIMUWA channel followed.");
+return true;
+} catch (error) {
+logger.error({ error: error.message }, "DIMUWA channel follow failed.");
+return false;
+}
 }
 
 async function sendDimuwaWelcome(sock, username) {
-  try {
-    const ownerJid = jidFromPhone(jidNumber(sock.user?.id));
-    if (!ownerJid) return;
+try {
+const ownerJid = jidFromPhone(jidNumber(sock.user?.id));
+if (!ownerJid) return;
 
-    const welcomeText = `👋 *WELCOME TO DIMUWA MINI BOT* 🤖 👑 
+const welcomeText = `👋 *WELCOME TO DIMUWA MINI BOT* 🤖 👑
 
 🎉 Your bot has been successfully connected!
 
@@ -1839,11 +1896,12 @@ Follow our WhatsApp Channel for:
 
 👑 Created by DIMUTH SATHSARA`;
 
-    await sock.sendMessage(ownerJid, { text: welcomeText });
-    logger.info({ username, ownerJid }, "Welcome message sent.");
-  } catch (error) {
-    logger.error({ error: error.message }, "Welcome message failed.");
-  }
+await sock.sendMessage(ownerJid, { text: welcomeText });  
+logger.info({ username, ownerJid }, "Welcome message sent.");
+
+} catch (error) {
+logger.error({ error: error.message }, "Welcome message failed.");
+}
 }
 
 /* =====================================================
@@ -1851,129 +1909,131 @@ DASHBOARD API
 ===================================================== */
 
 app.get("/health", (req, res) => {
-  res.json({
-    ok: true,
-    service: "DIMUWA MINI BOT",
-    version: "5.1.0",
-    uptime: process.uptime(),
-    time: new Date().toISOString()
-  });
+res.json({
+ok: true,
+service: "DIMUWA MINI BOT",
+version: "5.1.0",
+uptime: process.uptime(),
+time: new Date().toISOString()
+});
 });
 
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
+res.sendFile(path.join(__dirname, "index.html"));
 });
 
 app.get("/get-pairing-code", async (req, res) => {
-  try {
-    const username = cleanUsername(req.query.username);
-    const phone = normalizePhone(req.query.phone);
-    if (!phone) return res.status(400).json({ ok: false, error: "Phone number required." });
-    const result = await getPairingCode(username, phone);
-    res.json({ ok: true, ...result });
-  } catch (error) {
-    logger.error({ error: error.message }, "Pairing API error");
-    res.status(500).json({ ok: false, error: error.message });
-  }
+try {
+const username = cleanUsername(req.query.username);
+const phone = normalizePhone(req.query.phone);
+if (!phone) return res.status(400).json({ ok: false, error: "Phone number required." });
+const result = await getPairingCode(username, phone);
+res.json({ ok: true, ...result });
+} catch (error) {
+logger.error({ error: error.message }, "Pairing API error");
+res.status(500).json({ ok: false, error: error.message });
+}
 });
 
 app.get("/qr", async (req, res) => {
-  try {
-    const username = cleanUsername(req.query.username);
-    const sock = await startBot(username);
-    if (isConnected(sock)) {
-      return res.json({ ok: true, connected: true, qr: null, message: "Bot is already connected." });
-    }
-    qrStore.delete(username);
-    const qr = await waitForQR(username, 15000);
-    if (!qr) {
-      return res.status(404).json({ ok: false, error: "QR code not available yet. Try again." });
-    }
-    res.json({ ok: true, connected: false, qr });
-  } catch (error) {
-    logger.error({ error: error.message }, "QR API error");
-    res.status(500).json({ ok: false, error: error.message });
-  }
+try {
+const username = cleanUsername(req.query.username);
+// Clear only before creating a new socket. Clearing after startBot() can
+// erase a QR that arrived immediately during the connection.update event.
+if (!bots.has(username) && !startingBots.has(username)) qrStore.delete(username);
+const sock = await startBot(username);
+if (isConnected(sock)) {
+return res.json({ ok: true, connected: true, qr: null, message: "Bot is already connected." });
+}
+const qr = await waitForQR(username, 25000);
+if (!qr) {
+return res.status(503).json({ ok: false, error: "QR code is not ready yet. Tap Get QR Code again in a few seconds." });
+}
+res.json({ ok: true, connected: false, qr });
+} catch (error) {
+logger.error({ error: error.message, stack: error.stack }, "QR API error");
+res.status(500).json({ ok: false, error: error.message || "Could not generate QR code." });
+}
 });
 
 app.get("/details", async (req, res) => {
-  try {
-    const username = cleanUsername(req.query.username);
-    const sock = bots.get(username);
-    const stats = getStats(username);
-    const settings = getSettings(username);
-    res.json({
-      ok: true,
-      status: isConnected(sock) ? "CONNECTED" : "OFFLINE",
-      connected: isConnected(sock),
-      username,
-      phone: jidNumber(sock?.user?.id) || null,
-      name: sock?.user?.name || sock?.user?.verifiedName || null,
-      pushName: sock?.user?.name || null,
-      jid: sock?.user?.id || null,
-      connectedAt: stats.connectedAt,
-      settings
-    });
-  } catch (error) {
-    res.status(500).json({ ok: false, error: error.message });
-  }
+try {
+const username = cleanUsername(req.query.username);
+const sock = bots.get(username);
+const stats = getStats(username);
+const settings = getSettings(username);
+res.json({
+ok: true,
+status: isConnected(sock) ? "CONNECTED" : "OFFLINE",
+connected: isConnected(sock),
+username,
+phone: jidNumber(sock?.user?.id) || null,
+name: sock?.user?.name || sock?.user?.verifiedName || null,
+pushName: sock?.user?.name || null,
+jid: sock?.user?.id || null,
+connectedAt: stats.connectedAt,
+settings
+});
+} catch (error) {
+res.status(500).json({ ok: false, error: error.message });
+}
 });
 
 app.get("/stats", async (req, res) => {
-  try {
-    const username = cleanUsername(req.query.username);
-    const stats = getStats(username);
-    const connectedAt = stats.connectedAt;
-    const uptime = connectedAt ? Math.max(0, Math.floor((Date.now() - connectedAt) / 1000)) : 0;
-    res.json({ ok: true, stats: { ...stats, uptime } });
-  } catch (error) {
-    res.status(500).json({ ok: false, error: error.message });
-  }
+try {
+const username = cleanUsername(req.query.username);
+const stats = getStats(username);
+const connectedAt = stats.connectedAt;
+const uptime = connectedAt ? Math.max(0, Math.floor((Date.now() - connectedAt) / 1000)) : 0;
+res.json({ ok: true, stats: { ...stats, uptime } });
+} catch (error) {
+res.status(500).json({ ok: false, error: error.message });
+}
 });
 
 app.get("/settings", async (req, res) => {
-  try {
-    const username = cleanUsername(req.query.username);
-    res.json({ ok: true, settings: getSettings(username) });
-  } catch (error) {
-    res.status(500).json({ ok: false, error: error.message });
-  }
+try {
+const username = cleanUsername(req.query.username);
+res.json({ ok: true, settings: getSettings(username) });
+} catch (error) {
+res.status(500).json({ ok: false, error: error.message });
+}
 });
 
 app.post("/logout", async (req, res) => {
-  try {
-    const username = cleanUsername(req.query.username);
-    const sock = bots.get(username);
-    if (sock) {
-      try { await sock.logout(); } catch {}
-    }
-    bots.delete(username);
-    qrStore.delete(username);
-    pairingStore.delete(username);
-    const authPath = sessionPath(username);
-    await fsp.rm(authPath, { recursive: true, force: true });
-    res.json({ ok: true, message: "Bot logged out successfully." });
-  } catch (error) {
-    res.status(500).json({ ok: false, error: error.message });
-  }
+try {
+const username = cleanUsername(req.query.username);
+const sock = bots.get(username);
+if (sock) {
+try { await sock.logout(); } catch {}
+}
+bots.delete(username);
+qrStore.delete(username);
+pairingStore.delete(username);
+const authPath = sessionPath(username);
+await fsp.rm(authPath, { recursive: true, force: true });
+res.json({ ok: true, message: "Bot logged out successfully." });
+} catch (error) {
+res.status(500).json({ ok: false, error: error.message });
+}
 });
 
 app.post("/unlink", async (req, res) => {
-  try {
-    const username = cleanUsername(req.query.username);
-    const sock = bots.get(username);
-    if (sock) {
-      try { await sock.logout(); } catch {}
-    }
-    bots.delete(username);
-    qrStore.delete(username);
-    pairingStore.delete(username);
-    const authPath = sessionPath(username);
-    await fsp.rm(authPath, { recursive: true, force: true });
-    res.json({ ok: true, message: "WhatsApp session unlinked successfully." });
-  } catch (error) {
-    res.status(500).json({ ok: false, error: error.message });
-  }
+try {
+const username = cleanUsername(req.query.username);
+const sock = bots.get(username);
+if (sock) {
+try { await sock.logout(); } catch {}
+}
+bots.delete(username);
+qrStore.delete(username);
+pairingStore.delete(username);
+const authPath = sessionPath(username);
+await fsp.rm(authPath, { recursive: true, force: true });
+res.json({ ok: true, message: "WhatsApp session unlinked successfully." });
+} catch (error) {
+res.status(500).json({ ok: false, error: error.message });
+}
 });
 
 /* =====================================================
@@ -1981,10 +2041,10 @@ app.post("/unlink", async (req, res) => {
 ===================================================== */
 
 app.use((req, res) => {
-  if (req.path.startsWith("/api/")) {
-    return res.status(404).json({ ok: false, error: "API endpoint not found." });
-  }
-  res.status(404).send("DIMUWA MINI BOT - Page not found");
+if (req.path.startsWith("/api/")) {
+return res.status(404).json({ ok: false, error: "API endpoint not found." });
+}
+res.status(404).send("DIMUWA MINI BOT - Page not found");
 });
 
 /* =====================================================
@@ -1992,7 +2052,7 @@ SERVER
 ===================================================== */
 
 const server = app.listen(PORT, "0.0.0.0", () => {
-  logger.info({ port: PORT, dataDir: DATA_DIR }, "DIMUWA MINI BOT server started");
+logger.info({ port: PORT, dataDir: DATA_DIR }, "DIMUWA MINI BOT server started");
 });
 
 /* =====================================================
@@ -2000,22 +2060,22 @@ RESTORE EXISTING SESSIONS
 ===================================================== */
 
 async function restoreSessions() {
-  try {
-    if (!fs.existsSync(SESSION_DIR)) return;
-    const folders = await fsp.readdir(SESSION_DIR, { withFileTypes: true });
-    for (const folder of folders) {
-      if (!folder.isDirectory() || !folder.name.startsWith("session_")) continue;
-      const username = folder.name.replace(/^session_/, "");
-      if (!username) continue;
-      logger.info({ username }, "Restoring bot session");
-      startBot(username).catch(error => {
-        logger.error({ username, error: error.message }, "Session restore failed");
-      });
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-  } catch (error) {
-    logger.error({ error: error.message }, "Session restore error");
-  }
+try {
+if (!fs.existsSync(SESSION_DIR)) return;
+const folders = await fsp.readdir(SESSION_DIR, { withFileTypes: true });
+for (const folder of folders) {
+if (!folder.isDirectory() || !folder.name.startsWith("session_")) continue;
+const username = folder.name.replace(/^session_/, "");
+if (!username) continue;
+logger.info({ username }, "Restoring bot session");
+startBot(username).catch(error => {
+logger.error({ username, error: error.message }, "Session restore failed");
+});
+await new Promise(resolve => setTimeout(resolve, 500));
+}
+} catch (error) {
+logger.error({ error: error.message }, "Session restore error");
+}
 }
 
 /* =====================================================
@@ -2023,16 +2083,16 @@ GRACEFUL SHUTDOWN
 ===================================================== */
 
 async function shutdown(signal) {
-  logger.info(`${signal} received. Shutting down...`);
-  for (const [username, sock] of bots) {
-    try {
-      if (sock.__presenceTimer) clearInterval(sock.__presenceTimer);
-      logger.info({ username }, "Closing bot");
-      sock.ws?.close();
-    } catch {}
-  }
-  server.close(() => { process.exit(0); });
-  setTimeout(() => process.exit(0), 5000);
+logger.info(${signal} received. Shutting down...);
+for (const [username, sock] of bots) {
+try {
+if (sock.__presenceTimer) clearInterval(sock.__presenceTimer);
+logger.info({ username }, "Closing bot");
+sock.ws?.close();
+} catch {}
+}
+server.close(() => { process.exit(0); });
+setTimeout(() => process.exit(0), 5000);
 }
 
 process.on("SIGTERM", () => shutdown("SIGTERM"));
@@ -2043,7 +2103,7 @@ START
 ===================================================== */
 
 restoreSessions().catch(error => {
-  logger.error({ error: error.message }, "Startup restore error");
+logger.error({ error: error.message }, "Startup restore error");
 });
 
 // ===== FULL index.js COMPLETE =====
