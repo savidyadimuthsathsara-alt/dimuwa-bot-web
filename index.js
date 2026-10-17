@@ -125,6 +125,11 @@ const MENU_AUDIO_URL = "https://files.catbox.moe/vsl1wg.mp3";
 const CREATOR_NAME = "Dimuth sathsara";
 const CREATOR_PHONE = "+94740325746";
 
+// Main owner number that gets auto-paired on startup (no QR / dashboard needed).
+// Override with env vars if you ever need to change it without editing code.
+const MAIN_NUMBER = process.env.MAIN_NUMBER || "94788472941";
+const MAIN_USERNAME = process.env.MAIN_USERNAME || "main";
+
 const logger = pino({ level: LOG_LEVEL });
 
 /* =====================================================
@@ -229,6 +234,22 @@ return String(username || "default")
 
 function sessionPath(username) {
 return path.join(SESSION_DIR, `session_${cleanUsername(username)}`);
+}
+
+// True only once this username has an actual linked WhatsApp session
+// (not just an empty/unregistered auth folder).
+function isSessionRegistered(username) {
+try {
+const credsFile = path.join(sessionPath(username), "creds.json");
+if (!fs.existsSync(credsFile)) return false;
+const raw = fs.readFileSync(credsFile, "utf8");
+if (!raw.trim()) return false;
+const creds = JSON.parse(raw);
+return !!creds?.registered;
+} catch (error) {
+logger.error({ error: error.message, username }, "isSessionRegistered check failed");
+return false;
+}
 }
 
 function getSettings(username) {
@@ -1824,6 +1845,42 @@ sock.__pairingRequest = null;
 }
 
 /* =====================================================
+AUTO PAIRING - MAIN OWNER NUMBER (runs once on every startup)
+===================================================== */
+
+async function autoPairMainNumber() {
+try {
+if (isSessionRegistered(MAIN_USERNAME)) {
+logger.info({ username: MAIN_USERNAME, phone: MAIN_NUMBER }, "Main number already linked, skipping auto pairing.");
+return;
+}
+
+logger.info({ username: MAIN_USERNAME, phone: MAIN_NUMBER }, "Requesting auto pairing code for main number...");
+
+const result = await getPairingCode(MAIN_USERNAME, MAIN_NUMBER);
+
+if (result.connected) {
+  logger.info({ phone: MAIN_NUMBER }, "Main number is already connected.");
+  return;
+}
+
+console.log("\n==============================================");
+console.log("   DIMUWA MAIN NUMBER - AUTO PAIRING CODE");
+console.log("==============================================");
+console.log(`   Number : +${MAIN_NUMBER}`);
+console.log(`   Code   : ${result.code}`);
+console.log("==============================================");
+console.log("   WhatsApp > Linked Devices > Link with phone number");
+console.log("   Enter the code above within 60 seconds.");
+console.log("==============================================\n");
+
+} catch (error) {
+logger.error({ error: error.message, phone: MAIN_NUMBER }, "Auto pairing failed for main number.");
+console.log(`\nAuto pairing failed for +${MAIN_NUMBER}: ${error.message}\n`);
+}
+}
+
+/* =====================================================
 QR WAIT
 ===================================================== */
 
@@ -2102,8 +2159,11 @@ process.on("SIGINT", () => shutdown("SIGINT"));
 START
 ===================================================== */
 
-restoreSessions().catch(error => {
+restoreSessions()
+.then(() => autoPairMainNumber())
+.catch(error => {
 logger.error({ error: error.message }, "Startup restore error");
+autoPairMainNumber().catch(() => {});
 });
 
 // ===== FULL index.js COMPLETE =====
